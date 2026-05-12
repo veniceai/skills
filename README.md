@@ -15,6 +15,7 @@ template/      Copy this as a starting point for a new skill
 
 | Skill | Covers |
 |---|---|
+| [`hydrexfi-sdk`](./skills/hydrexfi-sdk/SKILL.md) | `@hydrexfi/hydrex-sdk` — Ichi guard deposit/withdraw, `Gauge`/`ClaimRewards` oHYDX claims, `OptionsToken` exercise ([SDK repo](https://github.com/hydrexfi/hydrex-sdk)); voting / LP / gauge stake unstake deferred |
 | [`venice-api-overview`](./skills/venice-api-overview/SKILL.md) | Base URL, auth modes, response headers, pricing model, versioning |
 | [`venice-auth`](./skills/venice-auth/SKILL.md) | Bearer API keys + SIWE / x402 wallet authentication |
 | [`venice-chat`](./skills/venice-chat/SKILL.md) | `/chat/completions` — `venice_parameters`, multimodal, tools, reasoning, streaming |

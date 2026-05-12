@@ -6,6 +6,7 @@
   "homepage": "https://docs.venice.ai",
   "license": "MIT",
   "skills": [
+    { "id": "hydrexfi-sdk", "path": "skills/hydrexfi-sdk/SKILL.md" },
     { "id": "venice-api-overview", "path": "skills/venice-api-overview/SKILL.md" },
     { "id": "venice-auth", "path": "skills/venice-auth/SKILL.md" },
     { "id": "venice-chat", "path": "skills/venice-chat/SKILL.md" },
