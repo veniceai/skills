@@ -17,11 +17,11 @@ RelayShield provides real-time identity threat intelligence via a REST API. Use 
 
 | Method | Path | What it does | Cost (x402) |
 |---|---|---|---|
-| `POST` | `/breach` | Email breach lookup — HIBP 13B+ records | $0.10 USDC |
+| `POST` | `/breach` | Email breach lookup — 13B+ compromised accounts | $0.10 USDC |
 | `POST` | `/sim-swap` | SIM swap / eSIM detection via live carrier data | $0.25 USDC |
 | `POST` | `/domain` | Typosquat & lookalike domain scan with DNS + CT enrichment | $0.50 USDC |
 | `POST` | `/oauth-watchlist` | Breached OAuth-connected SaaS apps for an email | $0.15 USDC |
-| `POST` | `/scan-wallet` | EVM wallet risk via GoPlus — blacklists, phishing, contract flags | $0.10 USDC |
+| `POST` | `/scan-wallet` | EVM wallet risk — blacklists, phishing associations, contract flags | $0.10 USDC |
 | `POST` | `/scan-url` | Malware/phishing URL scan across 70+ engines (async) | $0.05 USDC |
 | `POST` | `/scan-file` | Binary malware scan across 70+ AV engines (async) | $0.10 USDC |
 | `GET` | `/result/{analysis_id}` | Poll async scan result (scan-url / scan-file) | Free |
