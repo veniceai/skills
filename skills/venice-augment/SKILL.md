@@ -156,3 +156,110 @@ curl -X POST https://api.venice.ai/api/v1/augment/search \
 - **Research agent** — `/augment/search` → parallel `/augment/scrape` → `/chat/completions` with all markdown bodies.
 - **Data extraction** — XLSX via text-parser surfaces tab-delimited cell data you can then pipe to a model with `response_format: { type: "json_schema", ... }`.
 - **Citation pipeline** — Use `/augment/search` to pick sources, then give the chat model `venice_parameters.enable_web_citations: true` for inline `[n]` marks.
+
+## Evidence-first research agent pattern
+
+Use `/augment/search` + `/augment/scrape` when an agent needs to choose, inspect, and filter sources before synthesis. Use `venice_parameters.enable_web_search` when you want the model to manage retrieval itself. This pattern keeps evidence gathering separate from reasoning so the agent can preserve source URLs, discard weak pages, and return structured output.
+
+| Need | Prefer |
+|---|---|
+| Agent chooses and filters sources | `/augment/search` + `/augment/scrape` |
+| Model manages retrieval automatically | `venice_parameters.enable_web_search` |
+| Inline cited prose | `enable_web_citations` on `/chat/completions` |
+| Reliable downstream fields | `response_format: { type: "json_schema" }` |
+| Wallet-funded agent | SIWE / x402 auth |
+
+### Minimal loop
+
+```ts
+const base = 'https://api.venice.ai/api/v1'
+const headers = {
+  Authorization: `Bearer ${process.env.VENICE_API_KEY}`,
+  'Content-Type': 'application/json',
+}
+
+async function post(path: string, body: unknown) {
+  const res = await fetch(`${base}${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`${path} failed: ${res.status}`)
+  return res.json()
+}
+
+const search = await post('/augment/search', {
+  query: 'is Venice x402 suitable for wallet-funded AI agents?',
+  limit: 5,
+  search_provider: 'brave',
+})
+
+const selected = search.results.slice(0, 3)
+const scraped = await Promise.all(selected.map(async (result) => {
+  try {
+    const page = await post('/augment/scrape', { url: result.url })
+    return { url: result.url, title: result.title, content: page.content }
+  } catch (error) {
+    return { url: result.url, title: result.title, error: 'scrape_failed' }
+  }
+}))
+
+const sources = scraped
+  .filter((source) => source.content)
+  .map((source, index) =>
+    `SOURCE ${index + 1}: ${source.title}\n${source.url}\n${source.content.slice(0, 4000)}`,
+  )
+  .join('\n\n---\n\n')
+
+const brief = await post('/chat/completions', {
+  model: 'zai-org-glm-5-1',
+  response_format: {
+    type: 'json_schema',
+    json_schema: {
+      name: 'evidence_brief',
+      schema: {
+        type: 'object',
+        properties: {
+          brief: { type: 'string' },
+          evidence: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                claim: { type: 'string' },
+                source_url: { type: 'string' },
+                confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+              },
+              required: ['claim', 'source_url', 'confidence'],
+            },
+          },
+          open_questions: { type: 'array', items: { type: 'string' } },
+          next_searches: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['brief', 'evidence', 'open_questions', 'next_searches'],
+      },
+    },
+  },
+  messages: [
+    {
+      role: 'system',
+      content: 'Answer only from the supplied sources. Mark uncertainty clearly.',
+    },
+    {
+      role: 'user',
+      content: `Create an evidence-backed brief from these sources:\n\n${sources}`,
+    },
+  ],
+})
+```
+
+### Agent gotchas
+
+- Search snippets are leads, not evidence. Scrape the page before making a factual claim.
+- Keep `limit` small on the first search, then run follow-up searches from `open_questions` or `next_searches`.
+- Do not scrape every result blindly; select by title, URL, snippet, source quality, and user intent.
+- Failed scrapes are missing evidence, not negative evidence. Preserve failed URLs if the agent may need to retry.
+- Trim or chunk long pages before synthesis to control context and cost.
+- Use Brave for ZDR search by default; use Google when ranking quality matters more than provider diversity.
+- For cited prose managed by the model, use `/chat/completions` with `venice_parameters.enable_web_search` and `enable_web_citations`. See [`venice-chat`](../venice-chat/SKILL.md).
+- Wallet-funded agents can use SIWE / x402 auth instead of Bearer. See [`venice-x402`](../venice-x402/SKILL.md).
