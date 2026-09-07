@@ -156,7 +156,7 @@ Formats: `wav`, `mp3`, `aiff`, `aac`, `ogg`, `flac`, `m4a`, `pcm16`, `pcm24`. Au
 }
 ```
 
-Accepts public URLs (including YouTube for some providers) or `data:video/mp4;base64,...`. Supported formats: `mp4`, `mpeg`, `mov`, `webm`.
+Accepts public URLs (including YouTube for some providers) or `data:video/mp4;base64,...`. Supported formats: `mp4`, `mpeg`, `mov`, `webm`. This is the replacement for sunset `POST /video/transcriptions` (always `410`) — pick a model where `GET /models` reports `model_spec.capabilities.supportsVideoInput: true`. See [`venice-video`](../venice-video/SKILL.md).
 
 ### Prompt caching (`cache_control`)
 

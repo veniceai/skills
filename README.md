@@ -25,7 +25,7 @@ template/      Copy this as a starting point for a new skill
 | [`venice-audio-speech`](./skills/venice-audio-speech/SKILL.md) | `/audio/speech`, `/audio/voices` — TTS models, voices, voice cloning, formats, streaming |
 | [`venice-audio-music`](./skills/venice-audio-music/SKILL.md) | `/audio/quote`, `/audio/queue`, `/audio/retrieve`, `/audio/complete` |
 | [`venice-audio-transcription`](./skills/venice-audio-transcription/SKILL.md) | `/audio/transcriptions` — Whisper, Parakeet, Scribe, Wizper, xAI STT |
-| [`venice-video`](./skills/venice-video/SKILL.md) | `/video/*` generation + transcription |
+| [`venice-video`](./skills/venice-video/SKILL.md) | `/video/*` generation; `/video/transcriptions` is sunset (`410`) |
 | [`venice-models`](./skills/venice-models/SKILL.md) | `/models`, `/models/traits`, `/models/compatibility_mapping` |
 | [`venice-text-routing`](./skills/venice-text-routing/SKILL.md) | Pick a Venice text model by privacy tier (anonymized / private / TEE / E2EE), capability (vision, reasoning, code, tools, web search), context size, and cost. The routing layer above `/chat/completions`. |
 | [`venice-characters`](./skills/venice-characters/SKILL.md) | `/characters*` + `venice_parameters.character_slug` |

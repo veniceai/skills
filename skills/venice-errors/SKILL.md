@@ -1,6 +1,6 @@
 ---
 name: venice-errors
-description: Handle Venice API errors correctly. Covers the StandardError / DetailedError / ContentViolationError / X402InferencePaymentRequired body shapes, every meaningful status code (400, 401, 402, 403, 415, 422, 429, 500, 503, 504), the 402 PAYMENT-REQUIRED header used by x402 inference, 422 content-policy suggested_prompt retry pattern, 429 rate-limit headers, and an exponential-backoff retry strategy with idempotency.
+description: Handle Venice API errors correctly. Covers the StandardError / DetailedError / ContentViolationError / X402InferencePaymentRequired body shapes, every meaningful status code (400, 401, 402, 403, 410, 415, 422, 429, 500, 503, 504), the 402 PAYMENT-REQUIRED header used by x402 inference, 410 sunset on POST /video/transcriptions and GET /billing/usage, 422 content-policy suggested_prompt retry pattern, 429 rate-limit headers, and an exponential-backoff retry strategy with idempotency.
 ---
 
 # Venice errors & retries
@@ -89,6 +89,7 @@ The `PAYMENT-REQUIRED` response header carries a base64-encoded x402 v2 `payment
 | `401 Unauthorized` | `StandardError` | Missing / invalid Bearer API key or SIWE. | Rotate credentials. **Don't retry.** |
 | `402 Payment Required` | Bearer: `StandardError` with the configured message (e.g. `{ "error": "Insufficient balance" }` — the handler's default path does not attach a `code` field). SIWE: `X402InferencePaymentRequired` + `PAYMENT-REQUIRED` header. | Out of DIEM/USD/wallet credit. | Bearer: top up at venice.ai. SIWE: run the x402 top-up flow. |
 | `403 Forbidden` | `StandardError` | Valid auth but not entitled. Typical: trial-limited endpoint, beta model, API-key consumption cap hit, SIWE signer ≠ path wallet. | **Don't retry.** Investigate entitlements. |
+| `410 Gone` | `StandardError` | Resource sunset. Live: `POST /video/transcriptions` (successor `POST /chat/completions` with `video_url`) and `GET /billing/usage` (successor `GET /billing/usage-history`). Response may include `Deprecation` and `Link` headers. | Switch to the successor named in the body / `Link` header. **Don't retry.** |
 | `415 Unsupported Media Type` | `StandardError` | Wrong `Content-Type` (e.g. JSON sent to a multipart endpoint, or vice versa). | Fix headers. **Don't retry.** |
 | `422 Unprocessable Entity` | `ContentViolationError` on image/audio/video generation; plain `{ error }` on other routes (e.g. ASR validation errors). | Content policy violation on generation paths; schema-ish validation on others. | On audio generation, optionally retry once with `suggested_prompt`. On others, fix input. |
 | `429 Too Many Requests` | `StandardError` | Rate limit cap tripped. Also returned by `/crypto/rpc/{network}` when credit-per-day or concurrency cap tripped. | Honor `X-RateLimit-*` headers, back off with jitter. |
@@ -123,6 +124,7 @@ Inference endpoints (chat, image, audio, video) use a per-API-key tier defined v
 - `400` — bad input. Fix the request.
 - `401` — bad auth. Fix credentials.
 - `403` — not entitled. Don't hammer.
+- `410` — sunset. Use the successor endpoint named in the body / `Link` header.
 - `415` — wrong `Content-Type`.
 
 ### Retry with modification
@@ -150,7 +152,7 @@ async function callVenice<T>(fn: () => Promise<Response>): Promise<T> {
     const body = await res.clone().json().catch(() => ({}))
     const { status } = res
 
-    if ([400, 401, 403, 415].includes(status)) {
+    if ([400, 401, 403, 410, 415].includes(status)) {
       throw Object.assign(new Error(body.error ?? 'Venice error'), { status, body })
     }
 

@@ -58,7 +58,7 @@ await v.models.list()
 | TTS | `POST /audio/speech`, `POST /audio/voices` (voice cloning) | [`venice-audio-speech`](../venice-audio-speech/SKILL.md) |
 | STT | `POST /audio/transcriptions` | [`venice-audio-transcription`](../venice-audio-transcription/SKILL.md) |
 | Music (async) | `POST /audio/quote`, `/audio/queue`, `/audio/retrieve`, `/audio/complete` | [`venice-audio-music`](../venice-audio-music/SKILL.md) |
-| Video (async) | `POST /video/quote`, `/video/queue`, `/video/retrieve`, `/video/complete`, `/video/transcriptions` | [`venice-video`](../venice-video/SKILL.md) |
+| Video (async) | `POST /video/quote`, `/video/queue`, `/video/retrieve`, `/video/complete`; `/video/transcriptions` (sunset; always 410) | [`venice-video`](../venice-video/SKILL.md) |
 
 ### Catalog
 

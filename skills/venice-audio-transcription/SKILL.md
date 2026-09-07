@@ -13,7 +13,7 @@ description: Transcribe audio files to text via POST /audio/transcriptions. Cove
 - You need timestamps for subtitles / chapters.
 - You want to pick between fast local-style models (Parakeet) and large multilingual ones (Whisper, Wizper, Scribe).
 
-For long video / YouTube transcription, see [`venice-video`](../venice-video/SKILL.md)'s `/video/transcriptions` (takes a public video URL directly).
+For questions about a video (YouTube or another public URL), use [`venice-chat`](../venice-chat/SKILL.md) with `video_url` on a model where `model_spec.capabilities.supportsVideoInput` is `true`. `POST /video/transcriptions` is sunset and always returns `410`. To transcribe audio you have already extracted from a video file, use this endpoint.
 
 ## Minimal request
 

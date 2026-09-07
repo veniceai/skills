@@ -1,11 +1,11 @@
 ---
 name: venice-video
-description: Generate and transcribe videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video, video-to-video (upscale), audio input, reference images, reference video and reference audio (R2V), scene and element support, plus /video/transcriptions for YouTube URLs.
+description: Generate videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video, video-to-video (upscale), audio input, reference images, reference video and reference audio (R2V), and scene and element support. POST /video/transcriptions is sunset and always returns 410 — use chat video_url instead.
 ---
 
 # Venice Video
 
-Video is **asynchronous** — like audio music. Five endpoints:
+Video generation is **asynchronous** — like audio music. Four live endpoints, plus one sunset path that still exists in the spec:
 
 | Endpoint | Purpose |
 |---|---|
@@ -13,13 +13,14 @@ Video is **asynchronous** — like audio music. Five endpoints:
 | `POST /video/queue` | Enqueue generation. Returns `queue_id`, charges (reserves) funds. |
 | `POST /video/retrieve` | Poll status or download `video/mp4`. |
 | `POST /video/complete` | Finalize & delete media from Venice storage. |
-| `POST /video/transcriptions` | Sync: transcribe a YouTube URL's audio. |
+| `POST /video/transcriptions` | **Sunset.** Every request returns `410`. Use [`venice-chat`](../venice-chat/SKILL.md) `video_url`. |
 
 ## Use when
 
-- You need text-to-video, image-to-video, video upscale, video-with-audio, or video transcription.
+- You need text-to-video, image-to-video, video upscale, or video-with-audio.
 - You can tolerate async execution (single-digit seconds to several minutes depending on model, duration, and queue depth — inspect `average_execution_time` and `execution_duration` on `/video/retrieve` for your job's live estimate).
 - You want to price a job precisely before committing (`/video/quote`).
+- You need video **analysis** (summarize / question a URL) — do **not** call `/video/transcriptions`. Use [`venice-chat`](../venice-chat/SKILL.md) with `video_url` on a `supportsVideoInput` model.
 
 ## Lifecycle — generation
 
@@ -170,20 +171,40 @@ Availability depends on the model — check `GET /models?type=video`.
 }
 ```
 
-## `/video/transcriptions` (sync)
+## `/video/transcriptions` (sunset — always `410`)
 
-Transcribe a YouTube video URL directly — no queue.
+This beta path is deprecated. The live spec (`20260904.095608`) and the deployed route answer **every** request with `410 Gone`, including unauthenticated calls. Confirmed on `https://api.venice.ai/api/v1/video/transcriptions`.
 
 ```bash
 curl https://api.venice.ai/api/v1/video/transcriptions \
   -H "Authorization: Bearer $VENICE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://www.youtube.com/watch?v=...","response_format":"json"}'
+  -d '{"url":"https://www.youtube.com/watch?v=..."}'
 ```
 
-Response: `{"transcript":"...","lang":"en"}` (JSON) or plain `text/plain` body when `response_format: text`.
+```ts
+const res = await fetch('https://api.venice.ai/api/v1/video/transcriptions', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${process.env.VENICE_API_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=...' }),
+})
+// res.status === 410
+```
 
-For arbitrary audio files, use [`venice-audio-transcription`](../venice-audio-transcription/SKILL.md) instead.
+Response headers: `Deprecation: true` and
+`Link: </api/v1/chat/completions>; rel="successor-version", </api/v1/models>; rel="describedby"`.
+Body is `StandardError`:
+
+```json
+{
+  "error": "This beta endpoint has been deprecated and is no longer available.\n\nFor video analysis, summarization, or questions about a video, use `POST /api/v1/chat/completions` with the video URL passed as `video_url` and select a model where `model_spec.capabilities.supportsVideoInput` is `true`.\n\nAvailable models and their capabilities can be found via `GET /api/v1/models`."
+}
+```
+
+Replacement: [`venice-chat`](../venice-chat/SKILL.md) `video_url` on a model from `GET /models` with `supportsVideoInput: true`. For speech-to-text of an extracted audio file, use [`venice-audio-transcription`](../venice-audio-transcription/SKILL.md).
 
 ## Full polling loop
 
@@ -217,6 +238,7 @@ async function waitForVideo(model: string, queueId: string, downloadUrl?: string
 | `401` | Auth / Pro-only. |
 | `402` | Insufficient balance. |
 | `403` | Model unavailable in your region. |
+| `410` | `/video/transcriptions` only — sunset. Every request. Switch to chat `video_url`. Do not retry. |
 | `413` | Request payload too large — shrink images / audio. (Returned from `/video/queue`.) |
 | `422` | Content policy violation. (Returned from `/video/queue`.) |
 | `500` | Inference failed. |
@@ -233,4 +255,4 @@ async function waitForVideo(model: string, queueId: string, downloadUrl?: string
 - `reference_image_urls[]` is capped at 9 entries, `reference_video_urls[]` and `reference_audio_urls[]` at 3 each, `elements[]` at 4, `scene_image_urls[]` at 4. Over-limit is `400`.
 - Quote reference-video jobs with `reference_video_total_duration` (aggregate seconds of all reference videos). It switches the quote to the provider's "input with video" rate tier and the `(input + output) × pixels` token formula. Omit it and you get the no-reference baseline, which will under-quote the job.
 - `data:` URLs count toward payload size; large base64 videos may trip `413` — prefer hosted URLs.
-- `/video/transcriptions` is YouTube-URL-only; it does not accept arbitrary video uploads (use ffmpeg to strip audio, then `/audio/transcriptions`).
+- Do not call `/video/transcriptions`. It is sunset and always returns `410` (confirmed live). Use chat `video_url` or `/audio/transcriptions`.
