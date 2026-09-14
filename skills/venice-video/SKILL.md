@@ -1,6 +1,6 @@
 ---
 name: venice-video
-description: Generate and transcribe videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video, video-to-video (upscale), audio input, reference images, reference video and reference audio (R2V), scene and element support, plus /video/transcriptions for YouTube URLs.
+description: Generate and transcribe videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video, video-to-video (upscale), audio input, reference images, reference video and reference audio (R2V), scene and element support, H3 Max Multi-Angle camera_trajectory, plus /video/transcriptions for YouTube URLs.
 ---
 
 # Venice Video
@@ -46,7 +46,9 @@ and `video_url` for upscale models (`video_url` lets Venice auto-detect the
 source duration), and `reference_video_total_duration` for reference-to-video
 models — the aggregate seconds of every reference video you intend to send, up
 to 45. Quote a reference-video job without it and you get the no-reference
-baseline price.
+baseline price. For upscale models, `upscale_factor` is `1`, `2`, or `4` and
+the quote bills the output tier of source height × factor. It defaults to the
+model's default factor when omitted.
 
 ### 2. Submit with `/video/queue`
 
@@ -100,14 +102,15 @@ Availability depends on the model — check `GET /models?type=video`.
 | Field | Type | Notes |
 |---|---|---|
 | `model` | string | Required. |
-| `prompt` | string, ≤ 2500–3500 | **Required** (min length 1). Max length varies per model. |
+| `prompt` | string, min 1, ≤ 20000 | Required for most models; **optional for H3 Max Multi-Angle**. Schema max is 20000; most models cap near 2500 (`prompt_character_limit` on `GET /models?type=video`). |
 | `negative_prompt` | string, ≤ 2500–3500 | — |
 | `duration` | enum `1s..16s` in 1s steps, plus `18s`, `20s`, `25s`, `30s`, `1 gen`, `Auto` | Required. Model-specific subset. `1 gen` means one generation unit for models priced per generation rather than per second. |
 | `aspect_ratio` | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `9:16`, `16:9`, `21:9` | Some models ignore. |
 | `resolution` | `256p..4k`, or upscale hints `2x` / `4x` / `true_1080p` | Use `upscale_factor` for upscale models. |
 | `upscale_factor` | `1` / `2` / `4` | Only for upscale models. `1` = quality enhancement. |
 | `audio` | bool | Default `true`. Audio-capable models. |
-| `image_url` | URL or `data:` URL | Image-to-video reference frame. |
+| `image_url` | URL or `data:` URL | Image-to-video reference frame. Required for `camera_trajectory`. |
+| `camera_trajectory` | array, 2–12 objects | H3 Max Multi-Angle only. Each item requires `time` (0–1, strictly increasing), `azimuth` (degrees, signed; total absolute travel at most 32 turns), `elevation` (−90 to 90), `distance` (positive; `1` = unchanged). Requires `image_url`; aspect ratio follows that image. Omit to leave the camera path to the model. Resolve the current Multi-Angle model ID via `GET /models?type=video`. |
 | `end_image_url` | URL or data URL | End frame / transition reference. |
 | `audio_url` | URL or data URL | Background music input. WAV/MP3, ≤ 30 s, ≤ 15 MB. |
 | `video_url` | URL or data URL | Video-to-video / upscale input. MP4/MOV/WebM. |
@@ -144,6 +147,44 @@ Availability depends on the model — check `GET /models?type=video`.
   "aspect_ratio": "16:9"
 }
 ```
+
+### H3 Max Multi-Angle camera path
+
+```bash
+curl https://api.venice.ai/api/v1/video/queue \
+  -H "Authorization: Bearer $VENICE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "<H3 Max Multi-Angle id from GET /models?type=video>",
+    "image_url": "https://example.com/subject.jpg",
+    "duration": "6s",
+    "camera_trajectory": [
+      {"time": 0, "azimuth": 0, "elevation": 0, "distance": 1},
+      {"time": 1, "azimuth": 45, "elevation": 10, "distance": 1}
+    ]
+  }'
+```
+
+```ts
+await fetch('https://api.venice.ai/api/v1/video/queue', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${process.env.VENICE_API_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: multiAngleModelId, // from GET /models?type=video
+    image_url: 'https://example.com/subject.jpg',
+    duration: '6s',
+    camera_trajectory: [
+      { time: 0, azimuth: 0, elevation: 0, distance: 1 },
+      { time: 1, azimuth: 45, elevation: 10, distance: 1 },
+    ],
+  }),
+})
+```
+
+`prompt` may be omitted on this model. `camera_trajectory` without `image_url` is rejected. Do not send `aspect_ratio` — it follows the image.
 
 ### Video upscale
 
@@ -213,7 +254,7 @@ async function waitForVideo(model: string, queueId: string, downloadUrl?: string
 
 | Code | Meaning |
 |---|---|
-| `400` | Bad params (duration/resolution not supported by model, missing required `image_url` for i2v, missing `prompt`, etc.). |
+| `400` | Bad params (duration/resolution not supported by model, missing required `image_url` for i2v or `camera_trajectory`, missing `prompt` on models that still require it, malformed trajectory, etc.). |
 | `401` | Auth / Pro-only. |
 | `402` | Insufficient balance. |
 | `403` | Model unavailable in your region. |
@@ -227,6 +268,8 @@ async function waitForVideo(model: string, queueId: string, downloadUrl?: string
 ## Gotchas
 
 - **`duration` is required on `/video/queue`.** Even `Auto` is a valid explicit value.
+- `prompt` is optional only for H3 Max Multi-Angle. Every other `/video/queue` model still requires a non-empty prompt.
+- `camera_trajectory` requires `image_url`. Aspect ratio is taken from that image. Keyframe `time` values must be strictly increasing in `[0, 1]`.
 - `download_url` is **only sometimes** returned at queue time. Always handle both paths: binary from `/retrieve` OR fetching `download_url` after status `COMPLETED`.
 - `download_url` expires in 24 h — download promptly.
 - Upscale models use `upscale_factor` *instead of* `resolution`.
