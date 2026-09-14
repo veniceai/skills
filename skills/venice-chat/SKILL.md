@@ -29,7 +29,7 @@ curl https://api.venice.ai/api/v1/chat/completions \
   }'
 ```
 
-Response shape is the standard OpenAI `chat.completion` object (`id`, `object: "chat.completion"`, `choices[].message`, `usage`). With `stream: true`, responses come as SSE `data:` lines in `chat.completion.chunk` format.
+Response shape is the standard OpenAI `chat.completion` object (`id`, `object: "chat.completion"`, `choices[].message`, `usage`). `choices[].finish_reason` is `stop` \| `length` \| `tool_calls` \| `content_filter`. `content_filter` is HTTP 200 — generation stopped for policy; the choice is unusable. Do not treat it as a 422 and do not retry the same prompt. With `stream: true`, responses come as SSE `data:` lines in `chat.completion.chunk` format.
 
 ## The request body
 
@@ -50,6 +50,7 @@ Response shape is the standard OpenAI `chat.completion` object (`id`, `object: "
 | `tools`, `tool_choice`, `parallel_tool_calls` | function calling / built-in tools |
 | `logprobs`, `top_logprobs` | return token log-probabilities |
 | `reasoning.effort` / `reasoning_effort` | `none` \| `minimal` \| `low` \| `medium` \| `high` \| `xhigh` \| `max` |
+| `reasoning.enabled` | bool. Set `false` to disable reasoning on supported models. Defaults to the model configuration. **Ignored when an effort level is provided.** |
 | `reasoning.summary` | `auto` \| `concise` \| `detailed` |
 | `prompt_cache_key`, `prompt_cache_retention` (`default`/`extended`/`24h`) | prompt caching hints. `extended` and `24h` both extend retention to 24 hours on supported models |
 | `verbosity`, `text.verbosity` | `low`/`medium`/`high`/`auto`. Also accepted as a root-level field, not only nested under `text` |
@@ -216,9 +217,20 @@ On thinking models (GLM 5.1, Kimi K2.6, Claude Opus 4.7, GPT-5.4 Pro, …):
 }
 ```
 
+To disable reasoning, omit every effort field and send:
+
+```json
+{
+  "model": "zai-org-glm-5-1",
+  "reasoning": {"enabled": false},
+  "messages": [...]
+}
+```
+
 - `reasoning_effort` is the OpenAI-compatible flat variant (takes precedence over `reasoning.effort`).
+- `reasoning.enabled: false` is the Venice-level disable (not forwarded to the provider). The spec ignores `enabled` when `reasoning.effort` or `reasoning_effort` is set — do not send both.
 - Reasoning models may return `reasoning_content` or structured `reasoning_details[]` on the assistant message. **Pass `reasoning_details` back verbatim** in the next turn — it encodes thought signatures for providers like Claude Opus 4.7 and GPT-5.4 Pro.
-- Use `venice_parameters.disable_thinking: true` to skip thinking entirely on supported models.
+- `venice_parameters.disable_thinking: true` is the older Venice-only path (also a model feature suffix). Prefer `reasoning.enabled: false` when the model honors it.
 
 ## Structured output (`response_format`)
 
@@ -275,5 +287,7 @@ When `enable_web_search` is `"auto"` or `"on"`, the response includes `venice_pa
 - Audio inputs cannot be URLs — always base64.
 - Single-image vision models drop older images on each turn; chain them into the **last** user message.
 - For multi-turn with tools on Claude Opus 4.7, GPT-5.4 Pro, and similar, always round-trip `reasoning_details` unchanged.
+- `reasoning.enabled` is ignored if you also send `reasoning.effort` or `reasoning_effort`. Disable with `{"reasoning":{"enabled":false}}` and no effort field.
+- `finish_reason: "content_filter"` is HTTP 200, not 422. Distinct from a content-policy error body — see [`venice-errors`](../venice-errors/SKILL.md).
 - `parallel_tool_calls: true` means you MUST be prepared to execute several tools in parallel before sending a single `tool`-role reply chain.
 - `character_slug` **replaces** the default Venice system prompt. Combine with `include_venice_system_prompt: false` for total control.

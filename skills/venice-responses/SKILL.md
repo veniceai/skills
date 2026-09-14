@@ -23,7 +23,7 @@ Otherwise use [`venice-chat`](../venice-chat/SKILL.md) — it has more features,
 |---|---|
 | **Stateless** | No conversation persistence across requests. Send the full history each call. |
 | **E2EE models default to rejection** | E2EE-capable models return `400` unless you pass `venice_parameters.enable_e2ee: false` (TEE-only mode). For end-to-end encrypted inference with E2EE headers, use `/chat/completions`. |
-| **Subset of `venice_parameters`** | `character_slug`, `enable_e2ee`, `enable_web_search`, `enable_web_scraping`, `enable_web_citations`, `include_venice_system_prompt`, `include_search_results_in_stream` are supported. `strip_thinking_response`, `disable_thinking`, `enable_x_search` are **not** wired through in Alpha. |
+| **Subset of `venice_parameters`** | `character_slug`, `enable_e2ee`, `enable_web_search`, `enable_web_scraping`, `enable_web_citations`, `include_venice_system_prompt`, `include_search_results_in_stream` are supported. `strip_thinking_response`, `disable_thinking`, `enable_x_search` are **not** wired through in Alpha. Disable reasoning with `reasoning.enabled: false` instead. |
 | **Access gated by feature flag** | Bearer keys without `responsesApiEnabled` get `401`. x402 requests are allowed (pay-per-call). |
 
 ## Authentication
@@ -44,7 +44,7 @@ curl https://api.venice.ai/api/v1/responses \
 
 `input` accepts:
 - a plain string, or
-- an array of typed input items (similar to `chat/completions` message parts) for multi-turn or multimodal history.
+- an array of typed input items (similar to `chat/completions` message parts) for multi-turn or multimodal history. `input_image.image_url` accepts a URL string or `{url, detail}` (`auto` \| `low` \| `high`).
 
 ## Response shape
 
@@ -103,7 +103,7 @@ curl https://api.venice.ai/api/v1/responses \
 }
 ```
 
-Top-level `status` ∈ `completed` | `failed` | `in_progress` | `cancelled`. On `failed`, `error.code` and `error.message` are populated.
+Top-level `status` ∈ `completed` \| `failed` \| `in_progress` \| `cancelled` \| `incomplete`. On `failed`, `error.code` and `error.message` are populated. On `incomplete`, `incomplete_details.reason` is `max_output_tokens` or `content_filter`; partial `output[]` and `usage` are retained — do not discard them.
 
 ## Output block types
 
@@ -124,7 +124,8 @@ Match tool outputs back by `call_id` when continuing the turn.
 | `input` | Required. String or input-items array. To set system/developer context, include a leading message with `role: "system"`/`"developer"` in the input array. |
 | `tools` | Array of `{type:"function",function:{...}}` or built-in `{type:"web_search"}` — availability depends on the model. |
 | `tool_choice` | `"auto"` / `"required"` / `"none"` / `{type:"function",function:{"name":"..."}}`. |
-| `reasoning.effort` | Reasoning effort hint for thinking models (`"low"` \| `"medium"` \| `"high"`). Mapped to `reasoning_effort`. |
+| `reasoning.effort` | Reasoning effort hint for thinking models (`none` \| `minimal` \| `low` \| `medium` \| `high` \| `xhigh` \| `max`). Mapped to `reasoning_effort`. |
+| `reasoning.enabled` | bool. Set `false` to disable reasoning on supported models. Ignored when an effort level is provided. This is the Alpha disable path; `venice_parameters.disable_thinking` is still not wired through. |
 | `temperature`, `top_p`, `max_output_tokens` | Standard generation controls. `max_output_tokens` maps to `max_tokens`. |
 | `web_search` | Boolean shortcut for enabling web search, equivalent to adding `{"type":"web_search"}` to `tools` or setting `venice_parameters.enable_web_search`. |
 | `include` | Array of additional response fields to include (OpenAI compat). |
@@ -174,6 +175,6 @@ Consume events in order and reconstruct `output[]` client-side; the shape on `re
 - Port `messages` → pass as `input` (string, or typed array with leading `{role:"system"|"developer", content:"..."}`).
 - `venice_parameters.character_slug` → **supported**; pass inside `venice_parameters` or as a model feature suffix (`:character_slug=alan-watts`).
 - `venice_parameters.enable_web_search` → pass inside `venice_parameters`, or append `:enable_web_search=on` to the model ID, or add `{"type":"web_search"}` to `tools`.
-- `venice_parameters.strip_thinking_response` / `disable_thinking` → **not supported on `/responses`** in Alpha; stay on `/chat/completions` for these.
+- `venice_parameters.strip_thinking_response` / `disable_thinking` → **not supported on `/responses`** in Alpha. Use `reasoning.enabled: false` here, or stay on `/chat/completions` for the older `venice_parameters` path.
 - Full E2EE flow (E2EE request headers + encrypted response) → stay on `/chat/completions`. For TEE-only inference on an E2EE-capable model, pass `venice_parameters.enable_e2ee: false` here.
 - `response_format` / JSON-schema structured output → stay on `/chat/completions`.

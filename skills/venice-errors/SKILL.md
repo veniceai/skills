@@ -210,3 +210,4 @@ When present on a response, keep the `X-Request-ID` header. Include it in suppor
 - `DetailedError.details` is a Zod `_errors` tree, not a flat map. Walk it recursively.
 - Some endpoints (image generation) echo `X-Rate-Limit` variants — treat any header whose name starts with `X-RateLimit` as advisory.
 - Don't treat an empty `stream` chunk as an error — send-keepalives look like `data: [DONE]` or empty lines.
+- Chat `choices[].finish_reason: "content_filter"` and Responses `status: "incomplete"` with `incomplete_details.reason: "content_filter"` are HTTP 200 bodies, not 422. Do not apply the content-policy `suggested_prompt` retry to them. See [`venice-chat`](../venice-chat/SKILL.md) and [`venice-responses`](../venice-responses/SKILL.md).
