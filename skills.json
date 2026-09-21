@@ -15,6 +15,7 @@
     { "id": "venice-image-edit", "path": "skills/venice-image-edit/SKILL.md" },
     { "id": "venice-audio-speech", "path": "skills/venice-audio-speech/SKILL.md" },
     { "id": "venice-audio-music", "path": "skills/venice-audio-music/SKILL.md" },
+    { "id": "venice-audio-voice-changer", "path": "skills/venice-audio-voice-changer/SKILL.md" },
     { "id": "venice-audio-transcription", "path": "skills/venice-audio-transcription/SKILL.md" },
     { "id": "venice-video", "path": "skills/venice-video/SKILL.md" },
     { "id": "venice-models", "path": "skills/venice-models/SKILL.md" },

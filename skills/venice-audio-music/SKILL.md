@@ -14,7 +14,7 @@ POST /api/v1/audio/retrieve   → status or binary audio
 POST /api/v1/audio/complete   → finalize & delete media
 ```
 
-For short text-to-speech, use the synchronous [`venice-audio-speech`](../venice-audio-speech/SKILL.md) endpoint instead.
+For short text-to-speech, use the synchronous [`venice-audio-speech`](../venice-audio-speech/SKILL.md) endpoint instead. For speech-to-speech conversion of an existing recording, use [`venice-audio-voice-changer`](../venice-audio-voice-changer/SKILL.md) (`/audio/voice-changer/*`) — those models are rejected here.
 
 ## Use when
 
@@ -167,6 +167,7 @@ Before calling `/audio/queue`, inspect the model entry returned by `GET /models?
 - `min_prompt_length`, `prompt_character_limit`
 - `min_speed`, `max_speed`
 - `pricing.generation` (per-job), `pricing.per_second` (per second generated), `pricing.per_thousand_characters` (character-priced narration), or `pricing.durations` (duration-tiered map: `{ "<tier>": { usd, diem, min_seconds, max_seconds } }`) — each model uses one of these shapes
+- `voice_changer` — when `true`, this is a speech-to-speech model. Do **not** send it to `/audio/quote` or `/audio/queue`; use [`venice-audio-voice-changer`](../venice-audio-voice-changer/SKILL.md).
 
 ## Errors
 

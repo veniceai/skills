@@ -24,6 +24,7 @@ template/      Copy this as a starting point for a new skill
 | [`venice-image-edit`](./skills/venice-image-edit/SKILL.md) | `/image/edit`, `/image/multi-edit`, `/image/upscale`, `/image/background-remove` |
 | [`venice-audio-speech`](./skills/venice-audio-speech/SKILL.md) | `/audio/speech`, `/audio/voices` — TTS models, voices, voice cloning, formats, streaming |
 | [`venice-audio-music`](./skills/venice-audio-music/SKILL.md) | `/audio/quote`, `/audio/queue`, `/audio/retrieve`, `/audio/complete` |
+| [`venice-audio-voice-changer`](./skills/venice-audio-voice-changer/SKILL.md) | `/audio/voice-changer/*` — speech-to-speech conversion (quote / queue / retrieve / complete) |
 | [`venice-audio-transcription`](./skills/venice-audio-transcription/SKILL.md) | `/audio/transcriptions` — Whisper, Parakeet, Scribe, Wizper, xAI STT |
 | [`venice-video`](./skills/venice-video/SKILL.md) | `/video/*` generation + transcription |
 | [`venice-models`](./skills/venice-models/SKILL.md) | `/models`, `/models/traits`, `/models/compatibility_mapping` |

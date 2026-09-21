@@ -14,7 +14,7 @@ description: Generate speech from text via POST /audio/speech, and clone a voice
 - You want streaming audio returned sentence-by-sentence.
 - You need style/emotion control on supported models.
 
-For music generation (lyrics + instrumental), see [`venice-audio-music`](../venice-audio-music/SKILL.md). For transcription (audio → text), see [`venice-audio-transcription`](../venice-audio-transcription/SKILL.md).
+For music generation (lyrics + instrumental), see [`venice-audio-music`](../venice-audio-music/SKILL.md). For speech-to-speech conversion of an existing recording, see [`venice-audio-voice-changer`](../venice-audio-voice-changer/SKILL.md) — that is not TTS and not cloning. For transcription (audio → text), see [`venice-audio-transcription`](../venice-audio-transcription/SKILL.md).
 
 ## Minimal request
 
