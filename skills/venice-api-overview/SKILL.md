@@ -52,6 +52,7 @@ await v.models.list()
 |---|---|---|
 | Chat | `POST /chat/completions` | [`venice-chat`](../venice-chat/SKILL.md) |
 | Responses (Alpha) | `POST /responses` | [`venice-responses`](../venice-responses/SKILL.md) |
+| Decisions (Beta) | `POST /decisions`, `POST /systemone` | [`venice-decisions`](../venice-decisions/SKILL.md) |
 | Embeddings | `POST /embeddings` | [`venice-embeddings`](../venice-embeddings/SKILL.md) |
 | Image gen | `POST /image/generate`, `POST /images/generations`, `GET /image/styles` | [`venice-image-generate`](../venice-image-generate/SKILL.md) |
 | Image edit | `POST /image/edit`, `POST /image/multi-edit`, `POST /image/upscale`, `POST /image/background-remove` | [`venice-image-edit`](../venice-image-edit/SKILL.md) |

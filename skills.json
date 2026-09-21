@@ -10,6 +10,7 @@
     { "id": "venice-auth", "path": "skills/venice-auth/SKILL.md" },
     { "id": "venice-chat", "path": "skills/venice-chat/SKILL.md" },
     { "id": "venice-responses", "path": "skills/venice-responses/SKILL.md" },
+    { "id": "venice-decisions", "path": "skills/venice-decisions/SKILL.md" },
     { "id": "venice-embeddings", "path": "skills/venice-embeddings/SKILL.md" },
     { "id": "venice-image-generate", "path": "skills/venice-image-generate/SKILL.md" },
     { "id": "venice-image-edit", "path": "skills/venice-image-edit/SKILL.md" },

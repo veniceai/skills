@@ -13,7 +13,7 @@ Three read-only endpoints for model discovery — all `GET`:
 | `/models/traits` | Trait → model ID mapping (e.g. `"default"`, `"fastest"`, `"default_reasoning"`, `"highest_quality"`). |
 | `/models/compatibility_mapping` | Legacy / OpenAI / third-party model ID → Venice model ID aliases. |
 
-All three take an optional `?type=` filter: `text`, `image`, `video`, `music`, `tts`, `asr`, `embedding`, `upscale`, `inpaint`, `all`, `code`.
+All three take an optional `?type=` filter: `text`, `image`, `video`, `music`, `tts`, `asr`, `embedding`, `upscale`, `inpaint`, `decision`, `all`, `code`.
 
 All three are authenticated (Bearer API key or x402 SIWE) like every other `/api/v1` route.
 
@@ -87,6 +87,7 @@ curl "https://api.venice.ai/api/v1/models?type=text"
 - **Inpaint / edit** — `aspectRatios[]`, `promptCharacterLimit`, `combineImages`.
 - **TTS / Music** (fields surface at the top level of `model_spec`, not inside `constraints`) — `voices[]`, `default_voice`, `supports_lyrics`, `lyrics_required`, `supports_lyrics_optimizer`, `supports_force_instrumental`, `supports_speed`, `supports_language_code`, `min_speed`, `max_speed`, `min_prompt_length`, `prompt_character_limit`. Internal TTS per-model toggles like `supportsPromptParam` / `supportsTemperatureParam` / `supportsTopPParam` exist on the model definitions but are **not** merged into `/models` output today — treat the speech request schema as the support matrix.
 - **Embedding** (top-level, not inside `constraints`) — `embeddingDimensions`, `maxInputTokens`, `supportsCustomDimensions`.
+- **Decision** (top-level) — `maxStateTokens`, `maxTotalTokens`, plus `pricing.input` / `pricing.output` per 1 000 000 tokens. There is no `constraints` object on the live `jev-latest` row. Use [`venice-decisions`](../venice-decisions/SKILL.md) for `POST /decisions` / `POST /systemone`.
 
 ### `model_spec.pricing` — by model family
 
@@ -98,6 +99,7 @@ curl "https://api.venice.ai/api/v1/models?type=text"
 - **TTS** — `input.{usd,diem}` per **1 000 000 input characters**.
 - **ASR** — `per_audio_second.{usd,diem}`.
 - **Embeddings** — `input.{usd,diem}` per 1 000 000 tokens.
+- **Decision** — `input.{usd,diem}` / `output.{usd,diem}` per 1 000 000 tokens (same shape as LLM input/output; read the live row — output may be zero).
 
 Crypto RPC pricing is **not** in `/models` — it's tier × chain multipliers on `/crypto/rpc/{network}` (see [`venice-crypto-rpc`](../venice-crypto-rpc/SKILL.md)).
 

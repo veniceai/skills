@@ -19,6 +19,7 @@ template/      Copy this as a starting point for a new skill
 | [`venice-auth`](./skills/venice-auth/SKILL.md) | Bearer API keys + SIWX / x402 wallet authentication (Base and Solana) |
 | [`venice-chat`](./skills/venice-chat/SKILL.md) | `/chat/completions` — `venice_parameters`, multimodal, tools, reasoning, streaming |
 | [`venice-responses`](./skills/venice-responses/SKILL.md) | `/responses` — OpenAI-compatible Responses API (Alpha) |
+| [`venice-decisions`](./skills/venice-decisions/SKILL.md) | `/decisions` + `/systemone` — typed Jev decisions (Beta) |
 | [`venice-embeddings`](./skills/venice-embeddings/SKILL.md) | `/embeddings` — models, encoding formats, dimensions |
 | [`venice-image-generate`](./skills/venice-image-generate/SKILL.md) | `/image/generate`, `/images/generations`, `/image/styles` |
 | [`venice-image-edit`](./skills/venice-image-edit/SKILL.md) | `/image/edit`, `/image/multi-edit`, `/image/upscale`, `/image/background-remove` |
