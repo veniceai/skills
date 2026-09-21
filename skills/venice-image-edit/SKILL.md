@@ -18,7 +18,7 @@ For text-to-image generation, see [`venice-image-generate`](../venice-image-gene
 
 ## Shared rules
 
-- Input image accepts **base64 string**, **file upload** (multipart for `/image/multi-edit`), or **HTTPS URL** (for edit + multi-edit + background-remove).
+- Input image accepts **base64 string**, **file upload**, or **HTTPS URL**, but not every combination on every content type. `/image/edit` and `/image/multi-edit` accept base64 or HTTPS URL in JSON (multi-edit also has a `multipart/form-data` file variant). `/image/background-remove` JSON is **either** base64 `image` **or** `image_url`; its multipart variant is a required binary `image` file and does **not** accept `image_url`.
 - File size < **25 MB**. Image dimensions must be between **65,536** (256×256 equivalent) and **33,177,600** pixels (~5,761×5,761). Upscale caps at **16,777,216** pixels after scaling.
 - HTTPS URLs must be publicly reachable from Venice's network.
 - All four endpoints return the image as **binary**, never JSON. There is no `return_binary` field on edit / multi-edit / upscale / background-remove (that flag only exists on `/image/generate`). `/image/edit` and `/image/multi-edit` return `image/png`, `image/jpeg`, or `image/webp` depending on `output_format`; `/image/upscale` and `/image/background-remove` always return `image/png`.
@@ -45,7 +45,7 @@ curl https://api.venice.ai/api/v1/image/edit \
 | `model` | Default `firered-image-edit`. See `GET /models?type=inpaint` for edit-capable models. `modelId` is accepted for backwards compatibility but deprecated on `/image/edit` — prefer `model`. |
 | `prompt` | Required, ≤ 32 768 chars (usually 1500 is plenty). Short & specific works best. |
 | `image` | Required. Base64 string, file upload, or `https://` URL. |
-| `aspect_ratio` | Optional: `auto`, `1:1`, `3:2`, `16:9`, `21:9`, `9:16`, `2:3`, `3:4`, `4:5`. Supported values vary per model — check `constraints` on `GET /models`. |
+| `aspect_ratio` | Optional: `auto`, `1:1`, `3:2`, `16:9`, `21:9`, `9:16`, `2:3`, `3:4`, `4:3`, `4:5`. Supported values vary per model — check `constraints` on `GET /models`. |
 | `resolution` | Optional tier, e.g. `"1K"`, `"2K"`, `"4K"`. Defaults to `"1K"`. Supported values vary per model. |
 | `output_format` | Optional `jpeg` \| `png` \| `webp`. When omitted, inferred from `resolution`: PNG for 1K, JPEG for 2K/4K. |
 | `enhance_prompt` | Optional bool, default `false`. Rewrites your prompt against the input image before editing. Costs extra credits and adds up to ~30 s. The rewritten prompt comes back URL-encoded in the `x-venice-enhanced-prompt` response header. |
@@ -149,7 +149,11 @@ binary `image/png`.
 
 ## `/image/background-remove`
 
-Produce a transparent PNG cutout.
+Produce a transparent PNG cutout. JSON and multipart are **different schemas**.
+
+### JSON (`application/json`)
+
+Send **exactly one** of `image` (non-empty base64) or `image_url` (URI). Not both — the spec is an `anyOf` of two closed objects.
 
 ```bash
 # With base64
@@ -165,7 +169,28 @@ curl https://api.venice.ai/api/v1/image/background-remove \
   -d '{"image_url": "https://example.com/photo.jpg"}'
 ```
 
-Send **either** `image` (base64 / file) **or** `image_url`. Response is `image/png` with alpha channel.
+```ts
+await fetch('https://api.venice.ai/api/v1/image/background-remove', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${process.env.VENICE_API_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ image_url: 'https://example.com/photo.jpg' }),
+})
+```
+
+### Multipart (`multipart/form-data`)
+
+Required field `image` is a **binary file** (< 25 MB). There is no `image_url` field on this schema — do not mix a URL into the form.
+
+```bash
+curl https://api.venice.ai/api/v1/image/background-remove \
+  -H "Authorization: Bearer $VENICE_API_KEY" \
+  -F "image=@./photo.jpg"
+```
+
+Response is `image/png` with alpha channel.
 
 ## Error behavior (all four endpoints)
 
@@ -189,4 +214,4 @@ Send **either** `image` (base64 / file) **or** `image_url`. Response is `image/p
 - `creativity` on `/image/upscale` is **not** the old `enhanceCreativity` under a new name. Its usable range is 0 to 0.02, so port `enhanceCreativity: 0.5` as `creativity: 0.02` (the maximum), not as `0.5`.
 - `enhance_prompt` on edit / multi-edit bills extra credits whenever a rewrite is produced. Leave it off for latency-sensitive or cost-sensitive calls.
 - `safe_mode: true` can blur otherwise valid inputs if the source image trips content classifiers; switch to `false` (and handle the legal/ToS consequences yourself) when you control the input.
-- `/image/background-remove` takes **either** `image` **or** `image_url`, not both.
+- `/image/background-remove` JSON is **either** `image` (base64) **or** `image_url`, not both. Multipart is a required `image` file only — `image_url` is JSON-only.
