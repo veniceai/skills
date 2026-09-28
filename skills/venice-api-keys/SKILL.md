@@ -1,6 +1,6 @@
 ---
 name: venice-api-keys
-description: Manage Venice API keys. Covers GET/POST/PATCH/DELETE /api_keys, GET /api_keys/{id}, GET /api_keys/rate_limits, GET /api_keys/rate_limits/log, the two-step /api_keys/generate_web3_key wallet flow, INFERENCE vs ADMIN key types, and per-key consumption limits (USD / DIEM).
+description: Manage Venice API keys. Covers GET/POST/PATCH/DELETE /api_keys, GET /api_keys/{id}, GET /api_keys/rate_limits, GET /api_keys/rate_limits/log, the two-step /api_keys/generate_web3_key wallet flow, INFERENCE vs ADMIN key types, per-key consumption limits (USD / DIEM), and rate_limits balances (USD / DIEM / BUNDLED_CREDITS).
 ---
 
 # Venice API Keys
@@ -14,7 +14,7 @@ Admin endpoints for managing Bearer API keys. You need an **ADMIN** key (or pare
 | `PATCH /api_keys` | Update `description`, `expiresAt`, `consumptionLimit`. |
 | `DELETE /api_keys?id=...` | Revoke a key. |
 | `GET /api_keys/{id}` | Full details for one key (usage, limits, expiration). |
-| `GET /api_keys/rate_limits` | Balances + per-model rate-limit tiers for the current key. |
+| `GET /api_keys/rate_limits` | Balances (`USD` / `DIEM` / `BUNDLED_CREDITS`) + per-model rate-limit tiers for the current key. |
 | `GET /api_keys/rate_limits/log` | Last 50 rate-limit breaches. |
 | `GET /api_keys/generate_web3_key` | Get a SIWE-style token to sign with a wallet. |
 | `POST /api_keys/generate_web3_key` | Authenticate a wallet (holds sVVV) and mint a classic API key. |
@@ -141,7 +141,7 @@ Returns for the calling key:
   "data": {
     "accessPermitted": true,
     "apiTier": { "id": "paid", "isCharged": true },
-    "balances": { "USD": 50.23, "DIEM": 100.023 },
+    "balances": { "USD": 50.23, "DIEM": 100.023, "BUNDLED_CREDITS": 25 },
     "keyExpiration": "2025-06-01T00:00:00Z",
     "nextEpochBegins": "2025-05-07T00:00:00.000Z",
     "rateLimits": [
@@ -158,9 +158,11 @@ Returns for the calling key:
 }
 ```
 
+`balances.BUNDLED_CREDITS` is remaining bundled credit **denominated in USD**. The spec says it returns `0` when the user's plan does not include bundled credits. It is **not** a `consumptionLimit` key — create/patch limits stay `usd` / `diem`. Debit order is documented in [`venice-billing`](../venice-billing/SKILL.md).
+
 Use it to:
 
-- Display current balances in-app.
+- Display current balances in-app (include `BUNDLED_CREDITS`; do not drop an unexpected key).
 - Warm-gate calls when the relevant model's RPM cap is near.
 - Know when the next epoch resets (DIEM, bundled credits).
 
@@ -262,6 +264,7 @@ if (!data.accessPermitted) alert('Key blocked — top up or change tier')
 - The secret is returned **exactly once**, in the `POST` response. Losing it = delete + recreate.
 - `consumptionLimit` is per **epoch** (day / reset cycle), not per call.
 - `INFERENCE` keys can't call admin-only routes (`POST/PATCH/DELETE /api_keys`, `GET /api_keys`, `GET /api_keys/{id}`, `GET /billing/balance`, `GET /billing/usage`). They **can** call `GET /api_keys/rate_limits` and `/api_keys/rate_limits/log` for themselves. Use a separate `ADMIN` key for management.
+- `GET /api_keys/rate_limits` `balances` includes `BUNDLED_CREDITS` (USD-denominated; `0` if the plan has none). Do not treat it as a `consumptionLimit` field.
 - `vcu` is legacy — use `diem`.
 - `expiresAt` of empty string `""` means "no expiration" in CREATE; on UPDATE it **removes** an existing one.
 - Rate-limit log is capped at 50 entries — pull it frequently if debugging bursts.
