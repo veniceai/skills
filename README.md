@@ -156,7 +156,7 @@ CI runs this nightly; any drift is filed as an issue with the `sync` label.
 Some skills teach an agent to sign USDC payments, hold wallet keys, manage API keys and send JSON-RPC to mainnets, so every change is gated before it can reach an install:
 
 - **`scripts/check_skill_integrity.py`** runs on every PR and fails if the added lines introduce a host outside its allowlist, a wallet address other than the known USDC contracts and Solana mainnet id, a possible private key, or a pipe-to-shell pattern. Run it locally with `python scripts/check_skill_integrity.py --base origin/main`. Extending an allowlist means editing that script, which needs a code-owner review.
-- **CODEOWNERS** requires a review from `@veniceai/api-reviewers` for `venice-x402`, `venice-auth`, `venice-api-keys`, `venice-crypto-rpc`, `scripts/` and `.github/`, and those PRs are labeled `security-review`.
+- **CODEOWNERS** requires a review from `@veniceai/api-reviewers`, `@tombystrican`, `@lightcap` or `@joshua-mo-143` for `venice-x402`, `venice-auth`, `venice-api-keys`, `venice-crypto-rpc`, `scripts/` and `.github/`, and those PRs are labeled `security-review`.
 - **Releases** are tagged; see [Pin to a release](#pin-to-a-release) and the [changelog](./CHANGELOG.md).
 
 ## License
