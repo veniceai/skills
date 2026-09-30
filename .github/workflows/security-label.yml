@@ -1,0 +1,28 @@
+name: Security label
+
+# Labels PRs that touch the wallet, payment and key skills, the scripts, or CI.
+# Runs on pull_request_target so it can label fork PRs; it never checks out or
+# executes PR code, it only reads the changed file list from the API.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label security-sensitive changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh api --paginate "repos/$REPO/pulls/$PR/files" -q '.[].filename' \
+            | grep -qE '^(skills/(venice-x402|venice-auth|venice-api-keys|venice-crypto-rpc)/|scripts/|\.github/)'; then
+            gh pr edit "$PR" --repo "$REPO" --add-label security-review
+          fi

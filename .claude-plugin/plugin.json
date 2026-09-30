@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/schemas/plugin.schema.json",
   "name": "venice",
   "displayName": "Venice AI Skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Official agent skills for the Venice.ai API — private-by-default inference for chat, images, video, audio, embeddings, characters, billing, wallet (x402), and crypto RPC.",
   "author": {
     "name": "Venice.ai",

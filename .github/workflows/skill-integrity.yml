@@ -1,0 +1,35 @@
+name: Skill integrity
+
+# Fails a PR that adds a host, wallet address, or pipe-to-shell pattern outside
+# the allowlists in scripts/check_skill_integrity.py. On main it rescans the tree.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Check lines added by this PR
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python scripts/check_skill_integrity.py --base "origin/$BASE_REF"
+
+      - name: Check the whole tree
+        if: github.event_name != 'pull_request'
+        run: python scripts/check_skill_integrity.py --all

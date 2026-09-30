@@ -54,8 +54,8 @@ description: …when the agent should load this skill and what's in it…
 Clone or subtree the repo and point your agent skills path at `skills/`:
 
 ```bash
-# project-local
-git clone git@github.com:veniceai/skills.git .cursor/skills-venice
+# project-local, pinned to a release
+git clone --branch v0.2.0 git@github.com:veniceai/skills.git .cursor/skills-venice
 # or copy individual skills
 cp -r skills/venice-chat .cursor/skills/
 ```
@@ -77,14 +77,25 @@ The `SKILL.md` format is a shared spec — drop the `skills/` folder (or any sub
 One-liner install for most setups:
 
 ```bash
-# clone once
-git clone https://github.com/veniceai/skills.git ~/src/venice-skills
+# clone once, pinned to a release
+git clone --branch v0.2.0 https://github.com/veniceai/skills.git ~/src/venice-skills
 
 # symlink into every runtime you use
 ln -s ~/src/venice-skills/skills ~/.claude/skills/venice
 ln -s ~/src/venice-skills/skills ~/.codex/skills/venice
 ln -s ~/src/venice-skills/skills ~/.config/opencode/skills/venice
 ln -s ~/src/venice-skills/skills ~/.hermes/skills/venice
+```
+
+### Pin to a release
+
+A single clone feeds every runtime you symlink it into, and some skills teach an agent to sign USDC payments and handle wallet keys. Pin to a release tag rather than tracking `main`, and upgrade deliberately after reading the [changelog](./CHANGELOG.md):
+
+```bash
+cd ~/src/venice-skills
+git fetch --tags
+git diff v0.2.0 <new-tag> -- skills/   # review what changed
+git checkout <new-tag>
 ```
 
 The agent discovers each `SKILL.md` by its frontmatter `name` + `description` and loads it on demand. Runtimes that define extra frontmatter fields (`version`, `platforms`, `metadata.*`, `compatibility`, …) are required by spec to **ignore unknown fields**, so the same skill file works everywhere without forks.
@@ -95,6 +106,7 @@ The agent discovers each `SKILL.md` by its frontmatter `name` + `description` an
 
 ```bash
 git submodule add git@github.com:veniceai/skills.git vendor/venice-skills
+git -C vendor/venice-skills checkout v0.2.0
 ```
 
 Then symlink or copy the subsets you want into your agent's skill path.
@@ -138,6 +150,14 @@ The script prints:
 - model-type enum drift (e.g. new `type=…` value added).
 
 CI runs this nightly; any drift is filed as an issue with the `sync` label.
+
+## Integrity checks
+
+Some skills teach an agent to sign USDC payments, hold wallet keys, manage API keys and send JSON-RPC to mainnets, so every change is gated before it can reach an install:
+
+- **`scripts/check_skill_integrity.py`** runs on every PR and fails if the added lines introduce a host outside its allowlist, a wallet address other than the known USDC contracts and Solana mainnet id, a possible private key, or a pipe-to-shell pattern. Run it locally with `python scripts/check_skill_integrity.py --base origin/main`. Extending an allowlist means editing that script, which needs a code-owner review.
+- **CODEOWNERS** requires a review from `@veniceai/api-reviewers` for `venice-x402`, `venice-auth`, `venice-api-keys`, `venice-crypto-rpc`, `scripts/` and `.github/`, and those PRs are labeled `security-review`.
+- **Releases** are tagged; see [Pin to a release](#pin-to-a-release) and the [changelog](./CHANGELOG.md).
 
 ## License
 
