@@ -22,6 +22,7 @@ from pathlib import Path
 
 SCANNED_PATHS = ["skills", "scripts", "template", "AGENTS.md", "skills.json"]
 SELF = "scripts/check_skill_integrity.py"
+UNSCANNED = {SELF, "scripts/test_check_skill_integrity.py"}
 
 ALLOWED_HOSTS = {
     "api.venice.ai",
@@ -41,7 +42,13 @@ KNOWN_ADDRESSES = {
     "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",  # Solana mainnet genesis (CAIP-2 reference)
 }
 
-URL = re.compile(r"https?://([A-Za-z0-9.-]+)")
+# Take the whole token after the scheme and parse it ourselves. URL parsers and
+# curl resolve userinfo, percent-encoding, backslashes and missing slashes in
+# ways a reader of the skill would not, so anything but a plain host fails.
+URL_TOKEN = re.compile(r"\bhttps?:[^\s\"'`<>()\[\]{}|,]*", re.IGNORECASE)
+PLAIN_AUTHORITY = re.compile(r"[A-Za-z0-9.-]+(:[0-9]{1,5})?")
+FETCH_COMMAND = re.compile(r"\b(curl|wget)\b", re.IGNORECASE)
+BARE_HOST = re.compile(r"(?<![\w@./:%-])((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})(?::[0-9]{1,5})?/")
 EVM_KEY = re.compile(r"(?<![0-9A-Za-z])0x[0-9a-fA-F]{64}(?![0-9A-Za-z])")
 EVM_ADDRESS = re.compile(r"(?<![0-9A-Za-z])0x[0-9a-fA-F]{40}(?![0-9A-Za-z])")
 BASE58 = re.compile(r"(?<![0-9A-Za-z])[1-9A-HJ-NP-Za-km-z]{32,44}(?![0-9A-Za-z])")
@@ -57,12 +64,39 @@ def looks_like_base58_address(token: str) -> bool:
     return any(c.isdigit() for c in token) and any(c.isupper() for c in token) and any(c.islower() for c in token)
 
 
-def findings_for(line: str) -> list[str]:
+def url_findings(line: str) -> list[str]:
     found = []
-    for host in URL.findall(line):
-        host = host.lower().rstrip(".")
-        if host not in ALLOWED_HOSTS:
-            found.append(f"host not in allowlist: {host}")
+    for match in URL_TOKEN.finditer(line):
+        url = match.group(0).rstrip(".;:!?*")
+        rest = url.split(":", 1)[1]
+        if rest == "//":
+            continue
+        if "\\" in url:
+            found.append(f"backslash in URL: {url}")
+            continue
+        if not rest.startswith("//") or rest.startswith("///"):
+            found.append(f"malformed URL: {url}")
+            continue
+        authority = re.split(r"[/?#]", rest[2:], maxsplit=1)[0]
+        if "@" in authority:
+            found.append(f"credentials in URL authority: {url}")
+        elif "%" in authority:
+            found.append(f"percent-encoded URL authority: {url}")
+        elif not PLAIN_AUTHORITY.fullmatch(authority):
+            found.append(f"unparsable URL host: {url}")
+        else:
+            host = authority.split(":", 1)[0].lower().rstrip(".")
+            if host not in ALLOWED_HOSTS:
+                found.append(f"host not in allowlist: {host}")
+    if FETCH_COMMAND.search(line):
+        for host in BARE_HOST.findall(line):
+            if host.lower().rstrip(".") not in ALLOWED_HOSTS:
+                found.append(f"scheme-less host in {FETCH_COMMAND.search(line).group(1)} command: {host}")
+    return found
+
+
+def findings_for(line: str) -> list[str]:
+    found = url_findings(line)
     for key in EVM_KEY.findall(line):
         found.append(f"possible private key: {key[:10]}…")
     for address in EVM_ADDRESS.findall(line):
@@ -116,7 +150,7 @@ def main() -> int:
     problems = [
         (path, lineno, finding)
         for path, lineno, line in lines
-        if path != SELF
+        if path not in UNSCANNED
         for finding in findings_for(line)
     ]
     for path, lineno, finding in problems:

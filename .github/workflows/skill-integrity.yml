@@ -24,6 +24,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Test the checker
+        run: python -m unittest discover -s scripts -p "test_*.py"
+
       - name: Check lines added by this PR
         if: github.event_name == 'pull_request'
         env:
