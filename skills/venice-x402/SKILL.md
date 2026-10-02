@@ -104,6 +104,7 @@ if (!rail || rail.asset.toLowerCase() !== BASE_USDC) throw new Error('Unexpected
 
 // 2. Sign a $10 payment (base units; must be >= rail.amount and <= $10,000)
 const amount = 10_000_000n
+if (amount < BigInt(rail.amount)) throw new Error('Below the minimum top-up')
 if (amount > MAX_TOP_UP) throw new Error('Top-up exceeds the spend cap')
 const header = await createPaymentHeader(signer, 2, {
   scheme: 'exact',

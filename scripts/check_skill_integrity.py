@@ -49,11 +49,13 @@ URL_TOKEN = re.compile(r"\bhttps?:[^\s\"'`<>()\[\]{}|,]*", re.IGNORECASE)
 PLAIN_AUTHORITY = re.compile(r"[A-Za-z0-9.-]+(:[0-9]{1,5})?")
 FETCH_COMMAND = re.compile(r"\b(curl|wget)\b", re.IGNORECASE)
 BARE_HOST = re.compile(r"(?<![\w@./:%-])((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})(?::[0-9]{1,5})?/")
+SCHEME_RELATIVE = re.compile(r"[\"'`(=]\s*//((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})")
 EVM_KEY = re.compile(r"(?<![0-9A-Za-z])0x[0-9a-fA-F]{64}(?![0-9A-Za-z])")
 EVM_ADDRESS = re.compile(r"(?<![0-9A-Za-z])0x[0-9a-fA-F]{40}(?![0-9A-Za-z])")
 BASE58 = re.compile(r"(?<![0-9A-Za-z])[1-9A-HJ-NP-Za-km-z]{32,44}(?![0-9A-Za-z])")
+BASE58_SECRET = re.compile(r"(?<![0-9A-Za-z])[1-9A-HJ-NP-Za-km-z]{80,90}(?![0-9A-Za-z])")
 PIPE_TO_SHELL = re.compile(
-    r"(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(ba|z|da)?sh\b"
+    r"(curl|wget)\b[^\n]*\|\s*(sudo\s+)?((ba|z|da)?sh|python[0-9.]*|node|perl|ruby)\b"
     r"|(ba|z)?sh\s+<\(\s*(curl|wget)"
     r"|\b(iex|Invoke-Expression)\b",
     re.IGNORECASE,
@@ -70,6 +72,8 @@ def url_findings(line: str) -> list[str]:
         url = match.group(0).rstrip(".;:!?*")
         rest = url.split(":", 1)[1]
         if rest == "//":
+            if line[match.end():match.end() + 1] in ("{", "<", "["):
+                found.append(f"templated URL host: {line[match.start():match.end() + 1]}…")
             continue
         if "\\" in url:
             found.append(f"backslash in URL: {url}")
@@ -92,6 +96,9 @@ def url_findings(line: str) -> list[str]:
         for host in BARE_HOST.findall(line):
             if host.lower().rstrip(".") not in ALLOWED_HOSTS:
                 found.append(f"scheme-less host in {FETCH_COMMAND.search(line).group(1)} command: {host}")
+    for host in SCHEME_RELATIVE.findall(line):
+        if host.lower().rstrip(".") not in ALLOWED_HOSTS:
+            found.append(f"scheme-relative URL host: {host}")
     return found
 
 
@@ -99,6 +106,8 @@ def findings_for(line: str) -> list[str]:
     found = url_findings(line)
     for key in EVM_KEY.findall(line):
         found.append(f"possible private key: {key[:10]}…")
+    for key in BASE58_SECRET.findall(line):
+        found.append(f"possible base58 private key: {key[:10]}…")
     for address in EVM_ADDRESS.findall(line):
         if address.lower() not in KNOWN_ADDRESSES:
             found.append(f"unknown EVM address: {address}")
