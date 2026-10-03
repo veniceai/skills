@@ -1,0 +1,10 @@
+# Skills that sign payments, hold wallet keys, manage API keys or push JSON-RPC
+# to mainnets, plus the integrity check and CI, need a review from one of these
+# owners. Keep in sync with the path filter in .github/workflows/security-label.yml.
+
+/skills/venice-x402/        @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/skills/venice-auth/        @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/skills/venice-api-keys/    @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/skills/venice-crypto-rpc/  @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/scripts/                   @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/.github/                   @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143

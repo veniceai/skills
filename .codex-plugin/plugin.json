@@ -1,7 +1,7 @@
 {
   "name": "venice",
   "displayName": "Venice AI Skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Official agent skills for the Venice.ai API — private-by-default inference for chat, images, video, audio, embeddings, characters, billing, wallet (x402), and crypto RPC.",
   "author": "Venice.ai",
   "homepage": "https://docs.venice.ai",

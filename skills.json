@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "venice",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Official agent skills for the Venice.ai API.",
   "homepage": "https://docs.venice.ai",
   "license": "MIT",
