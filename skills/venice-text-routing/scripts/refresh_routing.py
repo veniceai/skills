@@ -12,8 +12,8 @@ skill folder:
     tier (XS / S / M / L / Frontier) plus TEE/E2EE buckets.
 
 Usage:
-    export VENICE_API_KEY=sk-...
-    python scripts/refresh_routing.py
+    python scripts/refresh_routing.py                  # no key needed
+    VENICE_API_KEY=sk-... python scripts/refresh_routing.py   # optional; tailors to the key
     python scripts/refresh_routing.py --base-url https://api.venice.ai
     python scripts/refresh_routing.py --dry-run        # don't write files
 
@@ -46,7 +46,7 @@ MATRIX_PATH = SKILL_DIR / "routing-matrix.md"
 
 # Cost-tier bucket boundaries, in USD per 1M input tokens.
 # Output-token cost is roughly 2-3x input cost across the catalog, so input is
-# the cleaner sort key. Boundaries are inclusive of the upper bound.
+# the cleaner sort key. Each bucket excludes its upper bound.
 TIERS: list[tuple[str, float]] = [
     ("XS", 0.20),
     ("S", 1.00),
@@ -74,15 +74,16 @@ CAPABILITY_COLUMNS: list[tuple[str, str]] = [
 ]
 
 
-def fetch_json(url: str, api_key: str) -> dict[str, Any]:
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Accept": "application/json",
-            "User-Agent": "venice-text-routing-refresh/0.1",
-        },
-    )
+def fetch_json(url: str, api_key: str | None) -> dict[str, Any]:
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "venice-text-routing-refresh/0.1",
+    }
+    # Both endpoints are public. A key only tailors the result (e.g. a
+    # modelPrivacy-restricted key filters the catalog), so it is optional.
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
@@ -97,15 +98,15 @@ def tier_for_input_price(usd_per_1m: float | None) -> str:
     return "Frontier"
 
 
-def privacy_label(model_id: str, raw_privacy: str | None) -> str:
+def privacy_label(capabilities: dict[str, Any], raw_privacy: str | None) -> str:
     """Resolve the routing privacy label.
 
-    Order matters: TEE/E2EE prefixes win over the raw ``privacy`` field
-    because the prefix is the contractual selector for the encrypted path.
+    ``model_spec.privacy`` is only ever ``private`` or ``anonymized``; the
+    TEE/E2EE tiers come from the capability flags, which win over it.
     """
-    if model_id.startswith("e2ee-"):
+    if capabilities.get("supportsE2EE"):
         return "e2ee"
-    if model_id.startswith("tee-"):
+    if capabilities.get("supportsTeeAttestation"):
         return "tee"
     return raw_privacy or "unknown"
 
@@ -125,7 +126,7 @@ def normalize_model(entry: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": model_id,
         "tier": tier_for_input_price(input_usd),
-        "privacy": privacy_label(model_id, spec.get("privacy")),
+        "privacy": privacy_label(capabilities, spec.get("privacy")),
         "capabilities": {
             key: bool(capabilities.get(key))
             for _, key in CAPABILITY_COLUMNS
@@ -137,17 +138,18 @@ def normalize_model(entry: dict[str, Any]) -> dict[str, Any]:
             "input_usd": input_usd,
             "output_usd": output_usd,
         },
-        "beta": bool(spec.get("beta") or spec.get("betaModel")),
+        "beta_access": bool(spec.get("beta")),
+        "beta_status": bool(spec.get("betaModel")),
         "offline": bool(spec.get("offline")),
         "region_restrictions": spec.get("regionRestrictions") or [],
         "deprecation_date": (spec.get("deprecation") or {}).get("date"),
     }
 
 
-def write_snapshot(models: list[dict[str, Any]], traits: dict[str, str], base_url: str) -> None:
+def write_snapshot(models: list[dict[str, Any]], traits: dict[str, str], base_url: str, snapshot_date: str) -> None:
     SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "snapshot_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "snapshot_date": snapshot_date,
         "source": {
             "models": f"GET {base_url.rstrip('/')}/api/v1/models?type=text",
             "traits": f"GET {base_url.rstrip('/')}/api/v1/models/traits?type=text",
@@ -200,9 +202,9 @@ MATRIX_HEADER = (
 )
 
 
-def render_section(title: str, blurb: str, models: list[dict[str, Any]]) -> str:
+def render_section(title: str, blurb: str, models: list[dict[str, Any]], empty: str = "_No models in the current snapshot._") -> str:
     if not models:
-        return f"### {title}\n\n{blurb}\n\n_No models in the current snapshot._\n"
+        return f"### {title}\n\n{blurb}\n\n{empty}\n"
     rows = [MATRIX_HEADER]
     for m in sorted(models, key=lambda m: m["id"]):
         cells = (
@@ -210,7 +212,8 @@ def render_section(title: str, blurb: str, models: list[dict[str, Any]]) -> str:
             + [fmt_cap(m, key) for _, key in CAPABILITY_COLUMNS]
             + [fmt_ctx(m), fmt_price(m)]
         )
-        rows.append("| " + " | ".join(f"`{c}`" if c == m["id"] else c for c in cells) + " |")
+        cells[0] = f"`{m['id']}`" + (f" (deprecated {m['deprecation_date'][:10]})" if m["deprecation_date"] else "")
+        rows.append("| " + " | ".join(cells) + " |")
     return f"### {title}\n\n{blurb}\n\n" + "\n".join(rows) + "\n"
 
 
@@ -228,12 +231,18 @@ def write_matrix(models: list[dict[str, Any]], traits: dict[str, str], snapshot_
             by_tier.setdefault(m["tier"], []).append(m)
 
     sections = [
-        ("XS — `< $0.20 / $0.40` per 1M", "Cheapest path; classification, intent extraction, simple summarization.", by_tier.get("XS", [])),
-        ("S — `$0.20–1 / $0.40–2` per 1M", "General chat, basic agents, light vision.", by_tier.get("S", [])),
-        ("M — `$1–4 / $2–10` per 1M", "Reasoning at moderate depth, strong code, multi-image vision.", by_tier.get("M", [])),
-        ("L — `$4–10 / $10–30` per 1M", "Long context (≥ 200K), heavy reasoning, complex tool use.", by_tier.get("L", [])),
-        ("Frontier — `≥ $10 / ≥ $30` per 1M", "Best-available. Resolve via trait `most_intelligent`.", by_tier.get("Frontier", [])),
-        ("TEE — hardware-attested", "Verify via `GET /api/v1/tee/attestation`.", tee_models),
+        ("XS — `< $0.20` input per 1M", "Cheapest path; classification, intent extraction, simple summarization.", by_tier.get("XS", [])),
+        ("S — `$0.20 – < $1` input per 1M", "General chat, basic agents, light vision.", by_tier.get("S", [])),
+        ("M — `$1 – < $4` input per 1M", "Reasoning at moderate depth, strong code, multi-image vision.", by_tier.get("M", [])),
+        ("L — `$4 – < $10` input per 1M", "Heavy reasoning, complex tool use.", by_tier.get("L", [])),
+        ("Frontier — `≥ $10` input per 1M", "Best-available. Resolve via trait `most_intelligent`.", by_tier.get("Frontier", [])),
+        ("Unpriced", "No input price in `/models`.", by_tier["unknown"], "_No unpriced models in the current snapshot._"),
+        (
+            "TEE — hardware-attested",
+            "Verify via `GET /api/v1/tee/attestation`.",
+            tee_models,
+            "_No TEE-only models in the current snapshot. TEE calls use the E2EE models below with the E2EE headers omitted._",
+        ),
         ("E2EE — end-to-end encrypted", "Requires ECDH (secp256k1) / HKDF / AES-256-GCM handshake. See [`venice-chat`](../venice-chat/SKILL.md).", e2ee_models),
     ]
 
@@ -247,14 +256,14 @@ def write_matrix(models: list[dict[str, Any]], traits: dict[str, str], snapshot_
         f"> Snapshot date: `{snapshot_date}` — sourced from `GET /api/v1/models?type=text` + `GET /api/v1/models/traits?type=text`.\n>\n"
         "> Authoritative machine-readable form: [`snapshots/text-routing.json`](snapshots/text-routing.json).\n\n"
         "## Cost tiers\n\n"
-        "| Tier | Rough $/1M in | Rough $/1M out |\n"
-        "|---|---|---|\n"
-        "| XS | < $0.20 | < $0.40 |\n"
-        "| S | $0.20 – $1 | $0.40 – $2 |\n"
-        "| M | $1 – $4 | $2 – $10 |\n"
-        "| L | $4 – $10 | $10 – $30 |\n"
-        "| Frontier | ≥ $10 | ≥ $30 |\n\n"
-        "Buckets mirror the size labels on [docs.venice.ai/models/text](https://docs.venice.ai/models/text).\n\n"
+        "| Tier | $/1M input tokens |\n"
+        "|---|---|\n"
+        "| XS | < $0.20 |\n"
+        "| S | $0.20 – < $1 |\n"
+        "| M | $1 – < $4 |\n"
+        "| L | $4 – < $10 |\n"
+        "| Frontier | ≥ $10 |\n\n"
+        "Buckets are this skill's own convention, keyed on input price only; output prices vary widely within a bucket.\n\n"
         "## Trait shortcuts\n\n"
         "| Trait | Resolves to |\n|---|---|\n"
         f"{trait_rows}\n\n"
@@ -264,12 +273,14 @@ def write_matrix(models: list[dict[str, Any]], traits: dict[str, str], snapshot_
         + ", `ctx` = `availableContextTokens`, `$/1M` = input/output USD per 1M tokens.\n\n"
         "`-` = not supported / not advertised.\n\n"
     )
-    body += "\n".join(render_section(title, blurb, ms) for title, blurb, ms in sections)
+    body += "\n".join(render_section(*section) for section in sections)
     body += (
         "\n## Sanity filters applied at routing time\n\n"
-        "- Drop models with `model_spec.beta === true` unless your key has beta access.\n"
+        "- Drop models with `beta_access` (`model_spec.beta`) unless your key has beta access. "
+        "`beta_status` (`model_spec.betaModel`) models are callable but may change or disappear; prefer non-beta when tied.\n"
         "- Drop models with `model_spec.offline === true`.\n"
-        "- Drop models whose `model_spec.regionRestrictions` exclude the caller.\n"
+        "- Drop models whose `model_spec.regionRestrictions` list the caller's country.\n"
+        "- Prefer models without `model_spec.deprecation` (marked `deprecated <date>` above).\n"
     )
     MATRIX_PATH.write_text(body, encoding="utf-8")
 
@@ -280,10 +291,6 @@ def main() -> int:
     parser.add_argument("--api-key", default=os.environ.get("VENICE_API_KEY"))
     parser.add_argument("--dry-run", action="store_true", help="Fetch + normalize but don't write files.")
     args = parser.parse_args()
-
-    if not args.api_key:
-        print("ERROR: set VENICE_API_KEY or pass --api-key", file=sys.stderr)
-        return 1
 
     base = args.base_url.rstrip("/")
     models_url = f"{base}/api/v1/models?type=text"
@@ -321,8 +328,8 @@ def main() -> int:
         sys.stdout.write("\n")
         return 0
 
-    write_snapshot(models, traits, base)
     snapshot_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    write_snapshot(models, traits, base, snapshot_date)
     write_matrix(models, traits, snapshot_date)
 
     print(f"Wrote {SNAPSHOT_PATH.relative_to(SKILL_DIR.parent.parent)}")

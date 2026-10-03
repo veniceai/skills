@@ -24,8 +24,10 @@ template/      Copy this as a starting point for a new skill
 | [`venice-image-edit`](./skills/venice-image-edit/SKILL.md) | `/image/edit`, `/image/multi-edit`, `/image/upscale`, `/image/background-remove` |
 | [`venice-audio-speech`](./skills/venice-audio-speech/SKILL.md) | `/audio/speech`, `/audio/voices` — TTS models, voices, voice cloning, formats, streaming |
 | [`venice-audio-music`](./skills/venice-audio-music/SKILL.md) | `/audio/quote`, `/audio/queue`, `/audio/retrieve`, `/audio/complete` |
+| [`venice-audio-voice-changer`](./skills/venice-audio-voice-changer/SKILL.md) | `/audio/voice-changer/*` — async speech-to-speech voice conversion (no model open to regular API keys yet) |
 | [`venice-audio-transcription`](./skills/venice-audio-transcription/SKILL.md) | `/audio/transcriptions` — Whisper, Parakeet, Scribe, Wizper, xAI STT |
-| [`venice-video`](./skills/venice-video/SKILL.md) | `/video/*` generation + transcription |
+| [`venice-video`](./skills/venice-video/SKILL.md) | `/video/quote`, `/video/queue`, `/video/retrieve`, `/video/complete` (`/video/transcriptions` is retired) |
+| [`venice-decisions`](./skills/venice-decisions/SKILL.md) | `/decisions` and `/systemone` — typed judgments from the Jev decision model (Beta) |
 | [`venice-models`](./skills/venice-models/SKILL.md) | `/models`, `/models/traits`, `/models/compatibility_mapping` |
 | [`venice-text-routing`](./skills/venice-text-routing/SKILL.md) | Pick a Venice text model by privacy tier (anonymized / private / TEE / E2EE), capability (vision, reasoning, code, tools, web search), context size, and cost. The routing layer above `/chat/completions`. |
 | [`venice-characters`](./skills/venice-characters/SKILL.md) | `/characters*` + `venice_parameters.character_slug` |
@@ -114,7 +116,7 @@ Skills are derived from the current Venice OpenAPI spec and public docs at <http
 
 | Mode | Header | When to use |
 |---|---|---|
-| **Bearer API key** | `Authorization: Bearer <key>` | Venice Pro account, consumes DIEM / USD / bundled credits. |
+| **Bearer API key** | `Authorization: Bearer <key>` | Venice account; each request is charged to one currency, in the order DIEM → earned credits → bundled credits → USD. |
 | **x402 / SIWX wallet** | `SIGN-IN-WITH-X: <base64 SIWX>` | No account required, pay per request with USDC on Base (chain `8453`) or Solana mainnet. The legacy `X-Sign-In-With-X` name still works. |
 
 See [`skills/venice-auth`](./skills/venice-auth/SKILL.md) for full signing details.
@@ -124,7 +126,7 @@ See [`skills/venice-auth`](./skills/venice-auth/SKILL.md) for full signing detai
 The skills are derived from the Venice OpenAPI spec. Run the sync script to diff the currently-published spec against the endpoints and model-type enums referenced in each `SKILL.md`:
 
 ```bash
-python scripts/sync_from_swagger.py --spec https://api.venice.ai/doc/api/swagger.yaml
+python scripts/sync_from_swagger.py --spec https://api.venice.ai/api/v1/swagger.yaml
 # or against a local copy
 python scripts/sync_from_swagger.py --spec ./swagger.yaml
 ```
