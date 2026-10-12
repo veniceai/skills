@@ -33,7 +33,7 @@ Authorization: Bearer <VENICE_API_KEY>
 ```
 
 - Create keys at <https://venice.ai/settings/api> or via [`venice-api-keys`](../venice-api-keys/SKILL.md).
-- Keys carry `apiKeyType` (`ADMIN` or `INFERENCE`), optional `consumptionLimits` (`usd` / `diem` caps over a `limitPeriod`), and `modelPrivacy` (`ALL`, `PRIVATE_TEXT`, `PRIVATE_ONLY`) which restricts which models the key may call.
+- Keys carry `apiKeyType` (`ADMIN` or `INFERENCE`), optional `consumptionLimits` (`usd` / `diem` caps over a `limitPeriod`), `modelPrivacy` (`ALL`, `PRIVATE_TEXT`, `PRIVATE_ONLY`) which restricts which models the key may call, and optional `ipAllowlist` (globally reachable IPv4/IPv6 addresses and CIDR subnets; an empty list allows any IP). See [`venice-api-keys`](../venice-api-keys/SKILL.md).
 - Only `ADMIN` keys can list, get, create, update or delete keys, read the rate-limit log, or call `/billing/balance`, `/billing/usage-history` and `/billing/usage-analytics`; an `INFERENCE` key gets `401 "Admin API key required"`.
 - Each request is charged to a single currency, picked in the order DIEM (staked) → earned credits → bundled credits → USD balance (see [`venice-billing`](../venice-billing/SKILL.md#currency--priority)).
 
@@ -221,13 +221,14 @@ Wallet holders can also mint a regular API key without the web UI: `GET /api_key
 | `402` | `{ "error": "Insufficient USD or Diem balance…" }` or "API key … spend limit exceeded" | API-key account out of funds, or the key hit its `consumptionLimits`. |
 | `403` | `{ "error": "You can only access balance for your own wallet" }` (or transaction history) | SIWX signer ≠ `{wallet}` in the path. |
 | `403` | `{ "error": "This API key is set to '<setting>', but `<model>` is an Anonymous model. Choose a Private, TEE, or E2EE model, or change the model privacy setting of this API key." }` | The key's `modelPrivacy` excludes that model. |
+| `403` | `{ "error": "This API key is restricted to configured IP addresses, and this request's source IP is not allowed" }` | The key has a non-empty `ipAllowlist` and this request's source IP is not on it (including on `GET /models*` when you send the key). |
 | `429` | `{ "error": "Too many concurrent requests", "code": "X402_CONCURRENCY_LIMIT" }` | More than 5 in-flight requests from one wallet. |
 
 `X402_SIGN_IN_*` codes: `INVALID_PAYLOAD` (missing address/message/signature), `PARSE_ERROR` (not base64 JSON), `INVALID_MESSAGE` (unparseable message, or missing `Nonce` / `Issued At` lines), `ADDRESS_MISMATCH`, `INVALID_CHAIN_ID`, `CHAIN_MISMATCH`, `UNSUPPORTED_CHAIN`, `MISSING_NONCE`, `DOMAIN_MISMATCH`, `TIMESTAMP_MISMATCH`, `EXPIRED`, `FUTURE_TIMESTAMP`, `NOT_BEFORE`, `INVALID_SIGNATURE`, `INVALID_WALLET`, `NONCE_REUSED` (all prefixed `X402_SIGN_IN_`). `code` is always set; `error` falls back to "Sign-in-with-X authentication failed" for `INVALID_CHAIN_ID` and `INVALID_WALLET`.
 
 ## Security hygiene
 
-- Bearer keys behave like passwords - store in a secret manager, rotate on compromise, scope with `consumptionLimits` and `modelPrivacy`.
+- Bearer keys behave like passwords - store in a secret manager, rotate on compromise, scope with `consumptionLimits`, `modelPrivacy`, and `ipAllowlist`.
 - SIWX needs a private-key signer on the client. In browsers use a wallet provider (MetaMask or WalletConnect on EVM, Phantom or a wallet-standard adapter on Solana) - never ship raw private keys.
 - A signed header lives at most 5 minutes and each nonce works once, so sign per request rather than caching headers.
 - Model rate limits apply per account and model; an x402 wallet is billed and limited as an account (its own, or the Venice account it is linked to) and also has a 5-in-flight concurrency cap. The error budget is bucketed per API key (or per IP for wallet requests), per `model`, and per OpenAI `user` field. See [`venice-api-keys`](../venice-api-keys/SKILL.md) and [`venice-errors`](../venice-errors/SKILL.md).
