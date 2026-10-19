@@ -1,6 +1,6 @@
 ---
 name: venice-responses
-description: Use Venice's Alpha POST /responses endpoint - an OpenAI-compatible, stateless Responses API with typed output blocks (reasoning, message, function_call, web_search_call). Covers request shape, input items, tools (function, web_search, x_search), reasoning controls, incomplete responses, streaming events, differences from /chat/completions, the supported venice_parameters subset, and E2EE behavior.
+description: Use Venice's Alpha POST /responses endpoint - an OpenAI-compatible, stateless Responses API with typed output blocks (reasoning, message, function_call, web_search_call). Covers request shape, input items, tools (function, web_search, x_search), reasoning controls, prompt_cache_retention, incomplete responses, streaming events, differences from /chat/completions, the supported venice_parameters subset, and E2EE behavior.
 ---
 
 # Venice Responses API (Alpha)
@@ -71,6 +71,7 @@ print(resp.output_text)
 | `web_search` | Boolean. `true` forces web search on (same as a `{"type":"web_search"}` tool). |
 | `include` | Only `"reasoning.encrypted_content"` has an effect (adds `encrypted_content` to reasoning blocks when the provider returns it). |
 | `stream` | Boolean. SSE with typed events. |
+| `prompt_cache_retention` | `in_memory` \| `24h` \| `default` \| `extended`. Prompt cache retention for supported OpenAI models; `"24h"` or `"extended"` keeps cached prefixes for up to 24 hours. Optional. Chat's matching field (`/chat/completions`) is `default` \| `extended` \| `24h` only — `in_memory` is Responses-specific in the spec. |
 | `anon_user_id` | Optional end-user id: 1–128 printable ASCII characters, no `||`. Distinct from `user`. |
 | `fallbacks` | Up to 10 `{model}` entries. Anthropic beta refusal fallback for Claude Fable 5; forwarded only on direct Anthropic routes. |
 | `venice_parameters` | Subset listed above. Example: `{"character_slug":"alan-watts","enable_web_search":"auto"}`. |
@@ -189,7 +190,7 @@ The spec lists an `X-Balance-Remaining` header on x402 `200` responses, but the 
 - `venice_parameters.character_slug`, `enable_web_search`, `enable_web_citations`, `enable_web_scraping`, `include_venice_system_prompt` → pass inside `venice_parameters` (not as model suffixes).
 - `enable_x_search` → add an `{"type":"x_search"}` tool instead.
 - `strip_thinking_response` / `disable_thinking` → use `reasoning.enabled: false`.
-- Structured output, audio / video / file inputs, `seed` / `stop` / `n`, logprobs, prompt-cache routing, and full E2EE → stay on `/chat/completions`.
+- Structured output, audio / video / file inputs, `seed` / `stop` / `n`, logprobs, `prompt_cache_key` routing, and full E2EE → stay on `/chat/completions`. `prompt_cache_retention` is a Responses request field (see above); `prompt_cache_key` is still accepted here and ignored.
 
 ## Gotchas
 
