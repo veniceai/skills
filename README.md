@@ -48,6 +48,7 @@ Task-level skills that chain the reference skills above into a finished result. 
 | [`venice-create-video`](./skills/venice-create-video/SKILL.md) | Idea to finished MP4: model limits, quote and confirm, queue, poll, clean up, save |
 | [`venice-create-audio`](./skills/venice-create-audio/SKILL.md) | Songs, instrumentals, loops, sound effects and voiceover, from quote to saved files |
 | [`venice-youtube-thumbnail`](./skills/venice-youtube-thumbnail/SKILL.md) | YouTube thumbnails and vertical covers: truthful concept, framing, text, faces, variants |
+| [`venice-product-photoshoot`](./skills/venice-product-photoshoot/SKILL.md) | Product photo to studio, lifestyle, flat lay, hero and seasonal shots, cutouts and channel sizes |
 
 ## Using these skills
 
