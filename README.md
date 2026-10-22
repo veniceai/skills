@@ -51,7 +51,13 @@ description: …when the agent should load this skill and what's in it…
 
 ### Cursor
 
-Clone or subtree the repo and point your agent skills path at `skills/`:
+This repo is also a Cursor plugin. Installing it adds all of these skills, plus:
+
+- **`venice-docs` MCP server** (`https://docs.venice.ai/mcp`): searches and reads the Venice API docs and OpenAPI spec, and can report a docs problem to the docs team. No key needed.
+
+To install the plugin from a clone, copy the repo (a symlink won't load) into `~/.cursor/plugins/local/venice` and run **Developer: Reload Window**. Cursor Enterprise admins can turn local plugins off, in which case Cursor skips that folder.
+
+To use only the skills, clone or subtree the repo and point your agent skills path at `skills/`:
 
 ```bash
 # project-local, pinned to a release
