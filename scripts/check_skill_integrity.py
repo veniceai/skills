@@ -25,7 +25,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import quote
 
-SCANNED_PATHS = ["skills", "scripts", "template", "AGENTS.md", "skills.json"]
+SCANNED_PATHS = ["skills", "scripts", "template", "AGENTS.md", "skills.json", "rules", "mcp.json"]
 SELF = "scripts/check_skill_integrity.py"
 UNSCANNED = {SELF, "scripts/test_check_skill_integrity.py"}
 
