@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "venice-docs": {
+      "type": "http",
+      "url": "https://docs.venice.ai/mcp"
+    }
+  }
+}
