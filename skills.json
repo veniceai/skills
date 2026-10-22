@@ -27,6 +27,7 @@
     { "id": "venice-x402", "path": "skills/venice-x402/SKILL.md" },
     { "id": "venice-crypto-rpc", "path": "skills/venice-crypto-rpc/SKILL.md" },
     { "id": "venice-augment", "path": "skills/venice-augment/SKILL.md" },
-    { "id": "venice-errors", "path": "skills/venice-errors/SKILL.md" }
+    { "id": "venice-errors", "path": "skills/venice-errors/SKILL.md" },
+    { "id": "venice-create-image", "path": "skills/venice-create-image/SKILL.md" }
   ]
 }
