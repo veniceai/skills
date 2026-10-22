@@ -30,6 +30,7 @@
     { "id": "venice-errors", "path": "skills/venice-errors/SKILL.md" },
     { "id": "venice-create-image", "path": "skills/venice-create-image/SKILL.md" },
     { "id": "venice-create-video", "path": "skills/venice-create-video/SKILL.md" },
-    { "id": "venice-create-audio", "path": "skills/venice-create-audio/SKILL.md" }
+    { "id": "venice-create-audio", "path": "skills/venice-create-audio/SKILL.md" },
+    { "id": "venice-youtube-thumbnail", "path": "skills/venice-youtube-thumbnail/SKILL.md" }
   ]
 }
