@@ -60,6 +60,24 @@ git clone --branch v0.2.0 git@github.com:veniceai/skills.git .cursor/skills-veni
 cp -r skills/venice-chat .cursor/skills/
 ```
 
+### Claude Code
+
+Install the skills as a plugin from this repository's marketplace. Inside Claude Code:
+
+```
+/plugin marketplace add veniceai/skills
+/plugin install venice@venice
+```
+
+Or from a shell:
+
+```bash
+claude plugin marketplace add veniceai/skills
+claude plugin install venice@venice
+```
+
+The skills are namespaced under the plugin, for example `/venice:venice-chat`. To pin a release, add the marketplace at a tag: `claude plugin marketplace add veniceai/skills@v0.2.0`.
+
 ### Claude / Codex / OpenCode / Hermes / other runtimes
 
 The `SKILL.md` format is a shared spec — drop the `skills/` folder (or any subset) into whichever path your runtime watches:
