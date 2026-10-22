@@ -3,6 +3,15 @@
     "venice-docs": {
       "type": "http",
       "url": "https://docs.venice.ai/mcp"
+    },
+    "venice": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "--ignore-scripts", "@veniceai/mcp-server@0.3.0"],
+      "env": {
+        "VENICE_API_KEY": "${VENICE_API_KEY}",
+        "VENICE_DISABLE_NSFW": "1"
+      }
     }
   }
 }
