@@ -32,6 +32,7 @@
     { "id": "venice-create-video", "path": "skills/venice-create-video/SKILL.md" },
     { "id": "venice-create-audio", "path": "skills/venice-create-audio/SKILL.md" },
     { "id": "venice-youtube-thumbnail", "path": "skills/venice-youtube-thumbnail/SKILL.md" },
-    { "id": "venice-product-photoshoot", "path": "skills/venice-product-photoshoot/SKILL.md" }
+    { "id": "venice-product-photoshoot", "path": "skills/venice-product-photoshoot/SKILL.md" },
+    { "id": "venice-explainer-video", "path": "skills/venice-explainer-video/SKILL.md" }
   ]
 }
