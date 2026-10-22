@@ -45,6 +45,7 @@ Task-level skills that chain the reference skills above into a finished result. 
 | Skill | Produces |
 |---|---|
 | [`venice-create-image`](./skills/venice-create-image/SKILL.md) | Brief to finished images: model and style choice, variants, edits, upscale, cutouts, saving files |
+| [`venice-create-video`](./skills/venice-create-video/SKILL.md) | Idea to finished MP4: model limits, quote and confirm, queue, poll, clean up, save |
 
 ## Using these skills
 
