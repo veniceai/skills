@@ -9,6 +9,7 @@
   "homepage": "https://docs.venice.ai",
   "repository": "https://github.com/veniceai/skills",
   "license": "MIT",
+  "logo": "assets/logo.png",
   "categories": ["AI", "API", "Skills"],
   "keywords": [
     "venice",
