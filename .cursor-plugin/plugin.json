@@ -24,5 +24,16 @@
     "embeddings",
     "crypto-rpc"
   ],
-  "skills": "./skills"
+  "skills": "./skills",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "VENICE_API_KEY": {
+        "type": "string",
+        "title": "Venice API key",
+        "description": "An INFERENCE key from [venice.ai/settings/api](https://venice.ai/settings/api). Everyone on the team who uses the plugin spends from this key, so use a dedicated key with a spend limit."
+      }
+    },
+    "required": ["VENICE_API_KEY"]
+  }
 }

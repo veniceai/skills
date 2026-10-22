@@ -67,6 +67,7 @@ description: …when the agent should load this skill and what's in it…
 This repo is also a Cursor plugin. Installing it adds all of these skills, plus:
 
 - **`venice-docs` MCP server** (`https://docs.venice.ai/mcp`): searches and reads the Venice API docs and OpenAPI spec, and can report a docs problem to the docs team. A report sends the page path and the agent's description of the problem, which can include text from your session. No key needed.
+- **`venice` MCP server** ([`@veniceai/mcp-server`](https://github.com/veniceai/venice-mcp-server), pinned to `0.3.1` and run with `npx --ignore-scripts`, so it needs Node.js 20 or later): tools that call the Venice API for chat, images, video, audio, music, embeddings, the model catalog and more. Its key is the plugin's `VENICE_API_KEY` variable, set in the Cursor dashboard under **Plugins**, at install or later with **Configure**. On a team, an admin sets it and everyone shares that key, so use a dedicated INFERENCE key with a spend limit. Until it's set, Cursor passes the literal `${VENICE_API_KEY}` placeholder to the server, so every tool that needs the key fails with a 401.
 
 To install the plugin from a clone, copy the repo (a symlink won't load) into `~/.cursor/plugins/local/venice` and run **Developer: Reload Window**. Cursor Enterprise admins can turn local plugins off, in which case Cursor skips that folder.
 
