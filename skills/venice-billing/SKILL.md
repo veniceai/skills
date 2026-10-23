@@ -1,6 +1,6 @@
 ---
 name: venice-billing
-description: Venice billing and usage analytics - GET /billing/balance, GET /billing/usage-history (keyset-paginated per-request ledger, JSON or CSV), and GET /billing/usage-analytics (aggregated by date/model/key). All require an ADMIN key. GET /billing/usage was sunset on 2026-09-16 and now always returns 410. Covers the DIEM/EARNED_CREDITS/BUNDLED_CREDITS/USD consumption priority and building dashboards. (Beta)
+description: Venice billing and usage analytics - GET /billing/balance, GET /billing/usage-history (keyset-paginated per-request ledger with per-entry apiKeyId, JSON or CSV), and GET /billing/usage-analytics (aggregated by date/model/key). All require an ADMIN key. GET /billing/usage was sunset on 2026-09-16 and now always returns 410. Covers the DIEM/EARNED_CREDITS/BUNDLED_CREDITS/USD consumption priority and building dashboards. (Beta)
 ---
 
 # Venice Billing
@@ -102,6 +102,7 @@ stay stable while new usage is recorded; no result totals are reported.
       "pricePerUnitUsd": 2.8,
       "amount": -0.06356,
       "currency": "DIEM",
+      "apiKeyId": "e28e82dc-9df2-4b47-b726-d0a222ef2ab5",
       "notes": "API Inference",
       "inferenceDetails": {
         "requestId": "chatcmpl-4007fd29f42b7d3c4107f4345e8d174a",
@@ -124,6 +125,7 @@ stay stable while new usage is recorded; no result totals are reported.
 - `pricePerUnitUsd` — rate per unit in USD.
 - `amount` — negative for a debit.
 - `currency` — `USD`, `DIEM`, `BUNDLED_CREDITS`, or `EARNED_CREDITS`.
+- `apiKeyId` — UUID of the API key the entry was charged to, matching `id` from `/api_keys`. `null` when the entry was not charged to a key: Venice web-app usage, and non-usage entries such as credit purchases, grants, and balance transfers. Required on every JSON row (nullable).
 - `inferenceDetails` — `null` for non-inference entries. When present, `requestId` is the `id` returned on the original response; `promptTokens`, `completionTokens`, and `inferenceExecutionTime` (ms) are each nullable when not recorded (tokens are `null` for non-LLM usage).
 
 ### CSV
@@ -236,6 +238,7 @@ const a = await fetch(`${base}/billing/usage-analytics?lookback=30d`, { headers 
 | `400` | `/billing/usage-history`: a `cursor` sent with any filter, an unknown parameter, a malformed timestamp, `pageSize` outside 10–1000, `endTimestamp` not later than `startTimestamp`, or an invalid/expired cursor. `/billing/usage-analytics`: malformed `lookback` / date, `endDate` before `startDate`, or a calendar range over 90 days (`lookback` over 90d is clamped, not rejected). |
 | `401` | Invalid key, or a non-ADMIN key on any billing endpoint. |
 | `402` | No `Authorization` header at all — the x402 auth challenge. |
+| `403` | The ADMIN key has a non-empty `ipAllowlist` and this request's source IP is not on it. See [`venice-api-keys`](../venice-api-keys/SKILL.md). |
 | `410` | `/billing/usage` — always. Sunset 2026-09-16. |
 | `429` | `/billing/usage` over 60 requests/min per IP; or the generic API error budget. |
 | `500` | Internal error. |
@@ -251,5 +254,6 @@ const a = await fetch(`${base}/billing/usage-analytics?lookback=30d`, { headers 
 - One inference request can appear as several ledger rows (e.g. separate input and output token SKUs) that repeat the same `inferenceDetails`. Sum `amount` across rows, but dedupe by `requestId` before summing token counts.
 - The analytics endpoint is **cached 10 min** — sudden spikes lag in the dashboard by that window.
 - `byModelDaily.date` is a **Unix milliseconds integer**; `byDate.date` is a **`YYYY-MM-DD` string**.
-- Usage from the Venice web app has `apiKeyId: null` — don't drop it when reconciling.
+- Usage from the Venice web app has `apiKeyId: null` on analytics `byKey` and on usage-history rows — don't drop those rows when reconciling. Usage-history also uses `null` for non-usage entries (purchases, grants, balance transfers).
+- `/billing/usage-history` JSON rows include `apiKeyId` (required, nullable UUID). Use it to join ledger lines to `/api_keys`. The spec does not list CSV columns, so do not assume a matching CSV column without checking a live export.
 - For x402 (wallet) balance, don't use these endpoints — use `GET /x402/balance/{walletAddress}`.
