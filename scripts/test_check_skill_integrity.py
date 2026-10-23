@@ -201,5 +201,47 @@ class ChecksPluginMcpServers(unittest.TestCase):
         self.assertEqual(status, 1)
 
 
+class RejectsPluginRunnables(unittest.TestCase):
+    FLAGGED = {
+        "hook file": {"hooks/hooks.json": {"hooks": {"SessionStart": []}}},
+        "Codex hooks file": {"hooks.json": {"hooks": {}}},
+        "LSP config": {".lsp.json": {"lspServers": {}}},
+        "monitor": {"monitors/watch.json": {}},
+        "executable": {"bin/run": "#!/bin/sh"},
+        "Claude manifest hooks": {".claude-plugin/plugin.json": {"name": "venice", "hooks": {"SessionStart": []}}},
+        "Claude manifest LSP servers": {".claude-plugin/plugin.json": {"name": "venice", "lspServers": {}}},
+        "Claude manifest monitors": {".claude-plugin/plugin.json": {"name": "venice", "monitors": []}},
+        "Cursor manifest hooks": {".cursor-plugin/plugin.json": {"name": "venice", "hooks": "./hooks/hooks.json"}},
+        "Codex manifest hooks": {".codex-plugin/plugin.json": {"name": "venice", "hooks": "./hooks.json"}},
+        "marketplace entry hooks": {".claude-plugin/marketplace.json": {"plugins": [{"name": "venice", "source": "./", "hooks": {}}]}},
+    }
+
+    def test_each_case_is_flagged(self):
+        for label, files in self.FLAGGED.items():
+            with self.subTest(label), in_repo(files) as root:
+                self.assertTrue(check.runnable_findings(Path(root)), f"not flagged: {label}")
+
+    def test_a_plain_skills_plugin_is_clean(self):
+        with in_repo({
+            ".claude-plugin/plugin.json": {"name": "venice", "skills": "./skills"},
+            ".claude-plugin/marketplace.json": {"plugins": [{"name": "venice", "source": "./"}]},
+            "skills/venice-chat/SKILL.md": "---",
+        }) as root:
+            self.assertEqual(check.runnable_findings(Path(root)), [])
+
+    def test_the_check_fails_on_a_hook(self):
+        cwd, argv = os.getcwd(), sys.argv
+        with in_repo(self.FLAGGED["hook file"]) as root:
+            os.chdir(root)
+            sys.argv = ["check_skill_integrity.py", "--all"]
+            try:
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    status = check.main()
+            finally:
+                os.chdir(cwd)
+                sys.argv = argv
+        self.assertEqual(status, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
