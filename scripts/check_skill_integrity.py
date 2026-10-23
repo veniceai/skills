@@ -97,6 +97,9 @@ PACKAGE_SPEC = re.compile(r"(@[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*|[a-z0-9]
 # Claude Code passes every userConfig value, the sensitive key included, to
 # plugin hooks as CLAUDE_PLUGIN_OPTION_<KEY>, and LSP servers, monitors and
 # bin/ run code too. The plugins ship none of them, so any of them fails.
+# Another source would make installing venice@venice fetch code from outside
+# this reviewed repository.
+LOCAL_SOURCES = {"./", "."}
 PLUGIN_MANIFESTS = [".claude-plugin/plugin.json", ".cursor-plugin/plugin.json", ".codex-plugin/plugin.json", "plugin.json"]
 RUNNABLE_PATHS = ["hooks", "hooks.json", ".lsp.json", "monitors", "bin"]
 RUNNABLE_FIELDS = ["hooks", "lspServers", "monitors"]
@@ -261,6 +264,18 @@ def runnable_findings(root: Path) -> list[tuple[str, str]]:
     return found
 
 
+def marketplace_source_findings(root: Path) -> list[tuple[str, str]]:
+    found = []
+    for rel in PLUGIN_MARKETPLACES:
+        marketplace = read_json_object(root / rel) if (root / rel).is_file() else None
+        for entry in (marketplace or {}).get("plugins", []):
+            source = entry.get("source") if isinstance(entry, dict) else None
+            if not isinstance(source, str) or source not in LOCAL_SOURCES:
+                name = entry.get("name") if isinstance(entry, dict) else entry
+                found.append((rel, f"plugin {name} installs from {source!r}, not this repository"))
+    return found
+
+
 def fetch_json(url: str) -> dict:
     with urllib.request.urlopen(url, timeout=30) as response:
         return json.load(response)
@@ -330,6 +345,7 @@ def main() -> int:
         ]
         problems += [(path, 1, finding) for path, finding in plugin_mcp_findings(Path("."))]
         problems += [(path, 1, finding) for path, finding in runnable_findings(Path("."))]
+        problems += [(path, 1, finding) for path, finding in marketplace_source_findings(Path("."))]
     for path, lineno, finding in problems:
         print(f"::error file={path},line={lineno}::{finding}")
     if problems:

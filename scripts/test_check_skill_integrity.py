@@ -243,5 +243,34 @@ class RejectsPluginRunnables(unittest.TestCase):
         self.assertEqual(status, 1)
 
 
+class ChecksMarketplaceSources(unittest.TestCase):
+    def marketplace(self, *entries):
+        return {".claude-plugin/marketplace.json": {"name": "venice", "plugins": list(entries)}}
+
+    def test_entries_from_elsewhere_are_flagged(self):
+        for source in [{"source": "github", "repo": "evil/plugin"}, "https://github.com/evil/plugin.git", "../other", "./plugins/other", None]:
+            entry = {"name": "venice"} if source is None else {"name": "venice", "source": source}
+            with self.subTest(source=source), in_repo(self.marketplace(entry)) as root:
+                self.assertTrue(check.marketplace_source_findings(Path(root)), f"not flagged: {source}")
+
+    def test_this_repository_is_clean(self):
+        for source in ["./", "."]:
+            with self.subTest(source=source), in_repo(self.marketplace({"name": "venice", "source": source})) as root:
+                self.assertEqual(check.marketplace_source_findings(Path(root)), [])
+
+    def test_the_check_fails_on_a_foreign_source(self):
+        cwd, argv = os.getcwd(), sys.argv
+        with in_repo(self.marketplace({"name": "venice", "source": "https://github.com/evil/plugin.git"})) as root:
+            os.chdir(root)
+            sys.argv = ["check_skill_integrity.py", "--all"]
+            try:
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    status = check.main()
+            finally:
+                os.chdir(cwd)
+                sys.argv = argv
+        self.assertEqual(status, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
