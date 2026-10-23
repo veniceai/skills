@@ -157,6 +157,36 @@ class ChecksPluginMcpServers(unittest.TestCase):
         with in_repo({".cursor-plugin/plugin.json": {"name": "venice", "mcpServers": "./mcp.json"}}) as root:
             self.assertEqual(check.plugin_mcp_findings(Path(root)), [])
 
+    def test_the_registry_must_serve_the_recorded_hash(self):
+        recorded = check.MCP_PACKAGES["@veniceai/mcp-server"]["0.3.0"]
+        urls = []
+
+        def serves(integrity):
+            def fetch(url):
+                urls.append(url)
+                return {"dist": {"integrity": integrity}}
+            return fetch
+
+        def unreachable(url):
+            raise OSError("connection refused")
+
+        self.assertEqual(check.registry_findings(fetch=serves(recorded)), [])
+        self.assertEqual(urls, ["https://registry.npmjs.org/@veniceai%2Fmcp-server/0.3.0"])
+        self.assertTrue(check.registry_findings(fetch=serves("sha512-tampered")))
+        self.assertTrue(check.registry_findings(fetch=serves(None)))
+        self.assertTrue(check.registry_findings(fetch=unreachable))
+
+    def test_registry_mode_fails_on_a_finding(self):
+        argv, original = sys.argv, check.registry_findings
+        check.registry_findings = lambda: [(check.SELF, "npm serves a different tarball")]
+        sys.argv = ["check_skill_integrity.py", "--registry"]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                status = check.main()
+        finally:
+            sys.argv, check.registry_findings = argv, original
+        self.assertEqual(status, 1)
+
     def test_the_check_fails_on_an_unpinned_plugin_server(self):
         cwd, argv = os.getcwd(), sys.argv
         with in_repo({".claude-plugin/plugin.json": {"name": "venice", "mcpServers": {"venice": self.FLAGGED["range"]}}}) as root:
