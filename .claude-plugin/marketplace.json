@@ -1,15 +1,15 @@
 {
   "name": "venice",
-  "description": "Official Venice.ai plugins for Claude Code.",
+  "description": "Official Venice AI plugins for Claude Code.",
   "owner": {
-    "name": "Venice.ai",
+    "name": "Venice AI",
     "url": "https://venice.ai"
   },
   "plugins": [
     {
       "name": "venice",
       "source": "./",
-      "description": "Official agent skills for the Venice.ai API: private-by-default chat, images, video, audio, embeddings, characters, billing, wallet (x402) and crypto RPC.",
+      "description": "Official agent skills for the Venice AI API: private-by-default chat, images, video, audio, embeddings, characters, billing, wallet (x402) and crypto RPC.",
       "category": "development",
       "homepage": "https://docs.venice.ai"
     }
