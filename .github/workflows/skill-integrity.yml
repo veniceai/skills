@@ -1,7 +1,9 @@
 name: Skill integrity
 
 # Fails a PR that adds a host, wallet address, or pipe-to-shell pattern outside
-# the allowlists in scripts/check_skill_integrity.py. On main it rescans the tree.
+# the allowlists in scripts/check_skill_integrity.py, or a plugin MCP server that
+# doesn't match an approved entry. On main it rescans the tree. Every run also
+# confirms that npm still serves the recorded hash for each pinned MCP package.
 
 on:
   pull_request:
@@ -36,3 +38,6 @@ jobs:
       - name: Check the whole tree
         if: github.event_name != 'pull_request'
         run: python scripts/check_skill_integrity.py --all
+
+      - name: Check pinned MCP packages against the npm registry
+        run: python scripts/check_skill_integrity.py --registry

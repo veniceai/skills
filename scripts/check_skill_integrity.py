@@ -9,6 +9,7 @@ under scripts/, which CODEOWNERS routes to a required reviewer.
 Usage:
     python scripts/check_skill_integrity.py --base origin/main   # lines added since base
     python scripts/check_skill_integrity.py --all                # every line in the tree
+    python scripts/check_skill_integrity.py --registry           # recorded MCP package hashes vs npm
 
 Exit code 1 when anything is flagged. Stdlib only.
 """
@@ -20,7 +21,9 @@ import json
 import re
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
+from urllib.parse import quote
 
 SCANNED_PATHS = ["skills", "scripts", "template", "AGENTS.md", "skills.json"]
 SELF = "scripts/check_skill_integrity.py"
@@ -233,6 +236,26 @@ def plugin_mcp_findings(root: Path) -> list[tuple[str, str]]:
     return found
 
 
+def fetch_json(url: str) -> dict:
+    with urllib.request.urlopen(url, timeout=30) as response:
+        return json.load(response)
+
+
+def registry_findings(fetch=fetch_json) -> list[tuple[str, str]]:
+    found = []
+    for name, versions in MCP_PACKAGES.items():
+        for version, recorded in versions.items():
+            url = f"https://registry.npmjs.org/{quote(name, safe='@')}/{version}"
+            try:
+                published = fetch(url).get("dist", {}).get("integrity")
+            except Exception as error:  # any failure to confirm the hash fails closed
+                found.append((SELF, f"couldn't read {name}@{version} from the npm registry: {error}"))
+                continue
+            if published != recorded:
+                found.append((SELF, f"npm serves {name}@{version} with integrity {published}, not the recorded {recorded}"))
+    return found
+
+
 def added_lines(base: str):
     diff = subprocess.run(
         ["git", "diff", "--unified=0", "--no-color", f"{base}...HEAD", "--", *SCANNED_PATHS],
@@ -267,16 +290,20 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--base", help="git ref to diff against; only added lines are checked")
     mode.add_argument("--all", action="store_true", help="check every line in the scanned paths")
+    mode.add_argument("--registry", action="store_true", help="check each recorded MCP package hash against npm")
     args = parser.parse_args()
 
-    lines = all_lines() if args.all else added_lines(args.base)
-    problems = [
-        (path, lineno, finding)
-        for path, lineno, line in lines
-        if path not in UNSCANNED
-        for finding in findings_for(line)
-    ]
-    problems += [(path, 1, finding) for path, finding in plugin_mcp_findings(Path("."))]
+    if args.registry:
+        problems = [(path, 1, finding) for path, finding in registry_findings()]
+    else:
+        lines = all_lines() if args.all else added_lines(args.base)
+        problems = [
+            (path, lineno, finding)
+            for path, lineno, line in lines
+            if path not in UNSCANNED
+            for finding in findings_for(line)
+        ]
+        problems += [(path, 1, finding) for path, finding in plugin_mcp_findings(Path("."))]
     for path, lineno, finding in problems:
         print(f"::error file={path},line={lineno}::{finding}")
     if problems:
