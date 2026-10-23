@@ -76,7 +76,7 @@ claude plugin marketplace add veniceai/skills
 claude plugin install venice@venice
 ```
 
-The skills are namespaced under the plugin, for example `/venice:venice-chat`. To pin a release, add the marketplace at a tag: `claude plugin marketplace add veniceai/skills@v0.2.0`.
+The skills are namespaced under the plugin, for example `/venice:venice-chat`. To pin a release, add the marketplace at a release tag, `claude plugin marketplace add veniceai/skills@<tag>`, using v0.3.0 or later; earlier tags don't include the marketplace.
 
 ### Claude / Codex / OpenCode / Hermes / other runtimes
 
