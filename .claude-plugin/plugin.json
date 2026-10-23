@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/schemas/plugin.schema.json",
   "name": "venice",
   "displayName": "Venice AI Skills",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Official agent skills for the Venice AI API — private-by-default inference for chat, images, video, audio, embeddings, characters, billing, wallet (x402), and crypto RPC.",
   "author": {
     "name": "Venice AI",
@@ -26,5 +26,27 @@
     "embeddings",
     "crypto-rpc"
   ],
-  "skills": "./skills"
+  "skills": "./skills",
+  "mcpServers": {
+    "venice": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--ignore-scripts",
+        "@veniceai/mcp-server@0.3.0"
+      ],
+      "env": {
+        "VENICE_API_KEY": "${user_config.venice_api_key}"
+      }
+    }
+  },
+  "userConfig": {
+    "venice_api_key": {
+      "type": "string",
+      "title": "Venice API key",
+      "description": "Create an INFERENCE key at venice.ai/settings/api, ideally with a spend limit. Stored in your system's secure credential store.",
+      "required": true,
+      "sensitive": true
+    }
+  }
 }

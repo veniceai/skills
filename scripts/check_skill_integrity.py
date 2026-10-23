@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Fail when skill content gains a host, wallet address, or shell pipe we have not approved.
+"""Fail when skill content gains a host, wallet address, or shell pipe we have not approved,
+or a plugin config starts an MCP server that doesn't match an approved entry.
 
 Agents follow these files literally, and some of them sign USDC payments, so a
 changed host or recipient is the edit worth stopping. The allowlists below live
@@ -8,6 +9,7 @@ under scripts/, which CODEOWNERS routes to a required reviewer.
 Usage:
     python scripts/check_skill_integrity.py --base origin/main   # lines added since base
     python scripts/check_skill_integrity.py --all                # every line in the tree
+    python scripts/check_skill_integrity.py --registry           # recorded MCP package hashes vs npm
 
 Exit code 1 when anything is flagged. Stdlib only.
 """
@@ -15,10 +17,13 @@ Exit code 1 when anything is flagged. Stdlib only.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
+from urllib.parse import quote
 
 SCANNED_PATHS = ["skills", "scripts", "template", "AGENTS.md", "skills.json"]
 SELF = "scripts/check_skill_integrity.py"
@@ -60,6 +65,44 @@ PIPE_TO_SHELL = re.compile(
     r"|\b(iex|Invoke-Expression)\b",
     re.IGNORECASE,
 )
+
+
+# A plugin install starts its MCP servers with the user's Venice key in their
+# environment, so each one has to match an approved entry field for field.
+# Values are the key setting each config may pass as VENICE_API_KEY.
+PLUGIN_MCP_CONFIGS = {
+    ".claude-plugin/plugin.json": "${user_config.venice_api_key}",
+    ".mcp.json": "${user_config.venice_api_key}",
+    ".cursor-plugin/plugin.json": "${VENICE_API_KEY}",
+    "mcp.json": "${VENICE_API_KEY}",
+}
+PLUGIN_MARKETPLACES = {
+    ".claude-plugin/marketplace.json": "${user_config.venice_api_key}",
+    ".cursor-plugin/marketplace.json": "${VENICE_API_KEY}",
+}
+# Each version maps to the npm dist.integrity of its tarball, so pinning a new
+# version means a code owner records the exact artifact it resolves to.
+MCP_PACKAGES = {
+    "@veniceai/mcp-server": {
+        "0.3.0": "sha512-zF/41cFgwAJFRrR45Yh5KRkEFMQmdqtoJ08ZBenbgqfhZ2de+m21kcfxlSKUa3IA4sTtGt0jdm4PSnePbVjziQ==",
+    },
+}
+NPX_PREFIX = ["-y", "--ignore-scripts"]
+OPTIONAL_MCP_ENV = {"VENICE_DISABLE_NSFW": "1"}
+STDIO_MCP_FIELDS = {"type", "command", "args", "env"}
+REMOTE_MCP_FIELDS = {"type", "url", "headers"}
+REMOTE_MCP_TYPES = {"http", "sse", "streamable-http"}
+PACKAGE_SPEC = re.compile(r"(@[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9._-]*)@([0-9]+\.[0-9]+\.[0-9]+)")
+
+# Claude Code passes every userConfig value, the sensitive key included, to
+# plugin hooks as CLAUDE_PLUGIN_OPTION_<KEY>, and LSP servers, monitors and
+# bin/ run code too. The plugins ship none of them, so any of them fails.
+# Another source would make installing venice@venice fetch code from outside
+# this reviewed repository.
+LOCAL_SOURCES = {"./", "."}
+PLUGIN_MANIFESTS = [".claude-plugin/plugin.json", ".cursor-plugin/plugin.json", ".codex-plugin/plugin.json", "plugin.json"]
+RUNNABLE_PATHS = ["hooks", "hooks.json", ".lsp.json", "monitors", "bin"]
+RUNNABLE_FIELDS = ["hooks", "lspServers", "monitors"]
 
 
 def looks_like_base58_address(token: str) -> bool:
@@ -119,6 +162,140 @@ def findings_for(line: str) -> list[str]:
     return found
 
 
+def pinned_package(spec: object) -> bool:
+    match = PACKAGE_SPEC.fullmatch(spec) if isinstance(spec, str) else None
+    return bool(match) and match.group(2) in MCP_PACKAGES.get(match.group(1), {})
+
+
+def remote_mcp_findings(name: str, server: dict) -> list[str]:
+    found = [f"MCP server {name}: unexpected field {key}" for key in sorted(set(server) - REMOTE_MCP_FIELDS)]
+    if server.get("type", "http") not in REMOTE_MCP_TYPES:
+        found.append(f"MCP server {name}: unexpected type {server.get('type')!r}")
+    url = server.get("url")
+    if not isinstance(url, str) or not url.startswith("https://"):
+        found.append(f"MCP server {name}: URL must use https: {url}")
+    else:
+        found += [f"MCP server {name}: {finding}" for finding in url_findings(url)]
+    headers = server.get("headers", {})
+    if not isinstance(headers, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in headers.items()):
+        found.append(f"MCP server {name}: headers must map names to strings")
+    return found
+
+
+def stdio_mcp_findings(name: str, server: dict, key_ref: str) -> list[str]:
+    found = [f"MCP server {name}: unexpected field {key}" for key in sorted(set(server) - STDIO_MCP_FIELDS)]
+    if server.get("type", "stdio") != "stdio":
+        found.append(f"MCP server {name}: unexpected type {server.get('type')!r}")
+    if server.get("command") != "npx":
+        found.append(f"MCP server {name}: only npx may start a server, not {server.get('command')!r}")
+    args = server.get("args")
+    if not (isinstance(args, list) and len(args) == 3 and args[:2] == NPX_PREFIX and pinned_package(args[2])):
+        found.append(f"MCP server {name}: args must be exactly -y --ignore-scripts and a recorded package version, not {args}")
+    env = server.get("env")
+    if not (
+        isinstance(env, dict)
+        and env.get("VENICE_API_KEY") == key_ref
+        and all(OPTIONAL_MCP_ENV.get(key) == value for key, value in env.items() if key != "VENICE_API_KEY")
+    ):
+        found.append(f"MCP server {name}: env must be exactly VENICE_API_KEY={key_ref}, optionally with VENICE_DISABLE_NSFW=1")
+    return found
+
+
+def mcp_server_findings(name: str, server: object, key_ref: str) -> list[str]:
+    if not isinstance(server, dict):
+        return [f"MCP server {name}: not an object"]
+    if "url" in server:
+        return remote_mcp_findings(name, server)
+    return stdio_mcp_findings(name, server, key_ref)
+
+
+def read_json_object(path: Path) -> dict | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def servers_findings(rel: str, servers: object, key_ref: str, where: str = "") -> list[tuple[str, str]]:
+    if isinstance(servers, str) and servers.removeprefix("./") in PLUGIN_MCP_CONFIGS:
+        return []
+    if not isinstance(servers, dict):
+        return [(rel, f"{where}mcpServers must be inline or point to a checked config file")]
+    return [(rel, where + finding) for name, server in servers.items() for finding in mcp_server_findings(name, server, key_ref)]
+
+
+def plugin_mcp_findings(root: Path) -> list[tuple[str, str]]:
+    found = []
+    for rel, key_ref in PLUGIN_MCP_CONFIGS.items():
+        if (root / rel).is_file():
+            config = read_json_object(root / rel)
+            if config is None:
+                found.append((rel, "not a JSON object"))
+            else:
+                found += servers_findings(rel, config.get("mcpServers", {}), key_ref)
+    for rel, key_ref in PLUGIN_MARKETPLACES.items():
+        if (root / rel).is_file():
+            marketplace = read_json_object(root / rel)
+            if marketplace is None:
+                found.append((rel, "not a JSON object"))
+                continue
+            for entry in marketplace.get("plugins", []):
+                if isinstance(entry, dict) and "mcpServers" in entry:
+                    found += servers_findings(rel, entry["mcpServers"], key_ref, f"plugin {entry.get('name')}: ")
+    return found
+
+
+def runnable_findings(root: Path) -> list[tuple[str, str]]:
+    found = [(rel, "plugins may not ship hooks, LSP servers, monitors or bin/") for rel in RUNNABLE_PATHS if (root / rel).exists()]
+    for rel in PLUGIN_MANIFESTS:
+        manifest = read_json_object(root / rel) if (root / rel).is_file() else None
+        if manifest is not None:
+            found += [(rel, f"manifest declares {field}, which plugins may not ship") for field in RUNNABLE_FIELDS if field in manifest]
+    for rel in PLUGIN_MARKETPLACES:
+        marketplace = read_json_object(root / rel) if (root / rel).is_file() else None
+        for entry in (marketplace or {}).get("plugins", []):
+            if isinstance(entry, dict):
+                found += [
+                    (rel, f"plugin {entry.get('name')} declares {field}, which plugins may not ship")
+                    for field in RUNNABLE_FIELDS
+                    if field in entry
+                ]
+    return found
+
+
+def marketplace_source_findings(root: Path) -> list[tuple[str, str]]:
+    found = []
+    for rel in PLUGIN_MARKETPLACES:
+        marketplace = read_json_object(root / rel) if (root / rel).is_file() else None
+        for entry in (marketplace or {}).get("plugins", []):
+            source = entry.get("source") if isinstance(entry, dict) else None
+            if not isinstance(source, str) or source not in LOCAL_SOURCES:
+                name = entry.get("name") if isinstance(entry, dict) else entry
+                found.append((rel, f"plugin {name} installs from {source!r}, not this repository"))
+    return found
+
+
+def fetch_json(url: str) -> dict:
+    with urllib.request.urlopen(url, timeout=30) as response:
+        return json.load(response)
+
+
+def registry_findings(fetch=fetch_json) -> list[tuple[str, str]]:
+    found = []
+    for name, versions in MCP_PACKAGES.items():
+        for version, recorded in versions.items():
+            url = f"https://registry.npmjs.org/{quote(name, safe='@')}/{version}"
+            try:
+                published = fetch(url).get("dist", {}).get("integrity")
+            except Exception as error:  # any failure to confirm the hash fails closed
+                found.append((SELF, f"couldn't read {name}@{version} from the npm registry: {error}"))
+                continue
+            if published != recorded:
+                found.append((SELF, f"npm serves {name}@{version} with integrity {published}, not the recorded {recorded}"))
+    return found
+
+
 def added_lines(base: str):
     diff = subprocess.run(
         ["git", "diff", "--unified=0", "--no-color", f"{base}...HEAD", "--", *SCANNED_PATHS],
@@ -153,20 +330,27 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--base", help="git ref to diff against; only added lines are checked")
     mode.add_argument("--all", action="store_true", help="check every line in the scanned paths")
+    mode.add_argument("--registry", action="store_true", help="check each recorded MCP package hash against npm")
     args = parser.parse_args()
 
-    lines = all_lines() if args.all else added_lines(args.base)
-    problems = [
-        (path, lineno, finding)
-        for path, lineno, line in lines
-        if path not in UNSCANNED
-        for finding in findings_for(line)
-    ]
+    if args.registry:
+        problems = [(path, 1, finding) for path, finding in registry_findings()]
+    else:
+        lines = all_lines() if args.all else added_lines(args.base)
+        problems = [
+            (path, lineno, finding)
+            for path, lineno, line in lines
+            if path not in UNSCANNED
+            for finding in findings_for(line)
+        ]
+        problems += [(path, 1, finding) for path, finding in plugin_mcp_findings(Path("."))]
+        problems += [(path, 1, finding) for path, finding in runnable_findings(Path("."))]
+        problems += [(path, 1, finding) for path, finding in marketplace_source_findings(Path("."))]
     for path, lineno, finding in problems:
         print(f"::error file={path},line={lineno}::{finding}")
     if problems:
         print(
-            f"\n{len(problems)} finding(s). If a new host or address is intended, add it to the "
+            f"\n{len(problems)} finding(s). If a new host, address or MCP package is intended, add it to the "
             f"allowlist in {SELF} in the same PR so a code owner reviews it.",
             file=sys.stderr,
         )
