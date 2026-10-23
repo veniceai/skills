@@ -78,6 +78,8 @@ claude plugin install venice@venice
 
 The skills are namespaced under the plugin, for example `/venice:venice-chat`. To pin a release, add the marketplace at a release tag, `claude plugin marketplace add veniceai/skills@<tag>`, using v0.3.0 or later; earlier tags don't include the marketplace.
 
+The plugin also starts the [Venice MCP server](https://github.com/veniceai/venice-mcp-server) (`@veniceai/mcp-server`, run with `npx --ignore-scripts`, Node.js 18 or later), so Claude can generate images, video, music and speech, check prices and browse models directly. When you enable the plugin, Claude Code asks for your Venice API key and keeps it in your system's secure credential store. Use an INFERENCE key with a spend limit. Claude Code asks before each tool call unless you allow it.
+
 ### Claude / Codex / OpenCode / Hermes / other runtimes
 
 The `SKILL.md` format is a shared spec — drop the `skills/` folder (or any subset) into whichever path your runtime watches:
