@@ -94,6 +94,13 @@ REMOTE_MCP_FIELDS = {"type", "url", "headers"}
 REMOTE_MCP_TYPES = {"http", "sse", "streamable-http"}
 PACKAGE_SPEC = re.compile(r"(@[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9._-]*)@([0-9]+\.[0-9]+\.[0-9]+)")
 
+# Claude Code passes every userConfig value, the sensitive key included, to
+# plugin hooks as CLAUDE_PLUGIN_OPTION_<KEY>, and LSP servers, monitors and
+# bin/ run code too. The plugins ship none of them, so any of them fails.
+PLUGIN_MANIFESTS = [".claude-plugin/plugin.json", ".cursor-plugin/plugin.json", ".codex-plugin/plugin.json", "plugin.json"]
+RUNNABLE_PATHS = ["hooks", "hooks.json", ".lsp.json", "monitors", "bin"]
+RUNNABLE_FIELDS = ["hooks", "lspServers", "monitors"]
+
 
 def looks_like_base58_address(token: str) -> bool:
     return any(c.isdigit() for c in token) and any(c.isupper() for c in token) and any(c.islower() for c in token)
@@ -236,6 +243,24 @@ def plugin_mcp_findings(root: Path) -> list[tuple[str, str]]:
     return found
 
 
+def runnable_findings(root: Path) -> list[tuple[str, str]]:
+    found = [(rel, "plugins may not ship hooks, LSP servers, monitors or bin/") for rel in RUNNABLE_PATHS if (root / rel).exists()]
+    for rel in PLUGIN_MANIFESTS:
+        manifest = read_json_object(root / rel) if (root / rel).is_file() else None
+        if manifest is not None:
+            found += [(rel, f"manifest declares {field}, which plugins may not ship") for field in RUNNABLE_FIELDS if field in manifest]
+    for rel in PLUGIN_MARKETPLACES:
+        marketplace = read_json_object(root / rel) if (root / rel).is_file() else None
+        for entry in (marketplace or {}).get("plugins", []):
+            if isinstance(entry, dict):
+                found += [
+                    (rel, f"plugin {entry.get('name')} declares {field}, which plugins may not ship")
+                    for field in RUNNABLE_FIELDS
+                    if field in entry
+                ]
+    return found
+
+
 def fetch_json(url: str) -> dict:
     with urllib.request.urlopen(url, timeout=30) as response:
         return json.load(response)
@@ -304,6 +329,7 @@ def main() -> int:
             for finding in findings_for(line)
         ]
         problems += [(path, 1, finding) for path, finding in plugin_mcp_findings(Path("."))]
+        problems += [(path, 1, finding) for path, finding in runnable_findings(Path("."))]
     for path, lineno, finding in problems:
         print(f"::error file={path},line={lineno}::{finding}")
     if problems:
