@@ -51,7 +51,15 @@ description: …when the agent should load this skill and what's in it…
 
 ### Cursor
 
-Clone or subtree the repo and point your agent skills path at `skills/`:
+This repo is also a Cursor plugin. Installing it adds all of these skills, plus:
+
+- **`venice-docs` MCP server** (`https://docs.venice.ai/mcp`): searches and reads the Venice API docs and OpenAPI spec, and can report a docs problem to the docs team. No key needed.
+- **`venice` MCP server** ([`@veniceai/mcp-server`](https://github.com/veniceai/venice-mcp-server), pinned to `0.3.0` and run with `npx --ignore-scripts`, so it needs Node.js 18 or later): tools that call the Venice API for chat, images, video, audio, music, embeddings, the model catalog and more. Cursor asks for a Venice API key when you install the plugin. Use a dedicated INFERENCE key with a spend limit, because these tools spend from it.
+- **`venice` rule** ([`rules/venice.mdc`](./rules/venice.mdc)): conventions for code that calls the Venice API, covering the base URL, keys, model lookup, async media, retries and x402 payment safety. The agent loads it when a task involves Venice.
+
+To install the plugin from a clone, copy the repo (a symlink won't load) into `~/.cursor/plugins/local/venice` and run **Developer: Reload Window**. Cursor Enterprise admins can turn local plugins off, in which case Cursor skips that folder.
+
+To use only the skills, clone or subtree the repo and point your agent skills path at `skills/`:
 
 ```bash
 # project-local, pinned to a release
@@ -175,7 +183,7 @@ CI runs this nightly; any drift is filed as an issue with the `sync` label.
 
 Some skills teach an agent to sign USDC payments, hold wallet keys, manage API keys and send JSON-RPC to mainnets, so every change is gated before it can reach an install:
 
-- **`scripts/check_skill_integrity.py`** runs on every PR and fails if lines added under `skills/`, `scripts/`, `template/`, `AGENTS.md` or `skills.json` introduce a URL host outside its allowlist (URLs are parsed, and credentials, percent-encoding, backslashes, missing slashes and templated hosts fail closed), a scheme-relative URL, a scheme-less host followed by a path in a `curl` / `wget` command, a wallet address other than the known USDC contracts and Solana mainnet id, a `0x` + 64-hex or long base58 string that could be a private key, or `curl` / `wget` piped into a shell or interpreter. Run it locally with `python scripts/check_skill_integrity.py --base origin/main`. Extending an allowlist means editing that script, which needs a code-owner review.
+- **`scripts/check_skill_integrity.py`** runs on every PR and fails if lines added under `skills/`, `scripts/`, `template/`, `rules/`, `AGENTS.md`, `skills.json` or `mcp.json` introduce a URL host outside its allowlist (URLs are parsed, and credentials, percent-encoding, backslashes, missing slashes and templated hosts fail closed), a scheme-relative URL, a scheme-less host followed by a path in a `curl` / `wget` command, a wallet address other than the known USDC contracts and Solana mainnet id, a `0x` + 64-hex or long base58 string that could be a private key, or `curl` / `wget` piped into a shell or interpreter. Run it locally with `python scripts/check_skill_integrity.py --base origin/main`. Extending an allowlist means editing that script, which needs a code-owner review.
 - **Plugin MCP servers**: the same script fails unless every MCP server in `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `mcp.json`, `.mcp.json` or a marketplace entry matches an approved entry field for field. A local server must run `npx -y --ignore-scripts` with an allowlisted package at a version recorded with its npm `sha512` and nothing after it, take an `env` of exactly `VENICE_API_KEY` from that plugin's key setting (optionally `VENICE_DISABLE_NSFW=1`), and set no other fields. A remote server may set only `type`, `url` and `headers`, with an `https` URL on an allowlisted host. That rules out `NODE_OPTIONS`, base-URL overrides, extra arguments and `headersHelper` commands. CI also confirms that npm still serves the recorded `sha512` for each pinned version (`--registry`), so a changed tarball fails closed.
 - **Plugin hooks and executables**: Claude Code passes every plugin setting, the API key included, to plugin hooks, so the same script fails if `hooks/`, `hooks.json`, `.lsp.json`, `monitors/` or `bin/` exists, or if a plugin manifest or marketplace entry declares `hooks`, `lspServers` or `monitors`. The plugins ship none of them.
 - **Marketplace sources**: every entry in `.claude-plugin/marketplace.json` or `.cursor-plugin/marketplace.json` must install from this repository (`./`), so a marketplace edit can't point `venice@venice` at code from somewhere else.

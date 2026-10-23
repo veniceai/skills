@@ -1,21 +1,22 @@
 {
   "name": "venice",
-  "displayName": "Venice AI Skills",
+  "displayName": "Venice",
   "version": "0.3.0",
-  "description": "Official agent skills for the Venice.ai API — private-by-default inference for chat, images, video, audio, embeddings, characters, billing, wallet (x402), and crypto RPC.",
-  "publisher": "veniceai",
-  "homepage": "https://docs.venice.ai",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/veniceai/skills.git"
+  "description": "Venice API skills, docs search and MCP tools for private-by-default chat, image, video, audio and embeddings.",
+  "author": {
+    "name": "Venice AI"
   },
+  "homepage": "https://docs.venice.ai",
+  "repository": "https://github.com/veniceai/skills",
   "license": "MIT",
+  "logo": "assets/logo.png",
   "categories": ["AI", "API", "Skills"],
   "keywords": [
     "venice",
     "veniceai",
     "llm",
     "inference",
+    "mcp",
     "openai-compatible",
     "privacy",
     "x402",
@@ -25,5 +26,16 @@
     "embeddings",
     "crypto-rpc"
   ],
-  "skills": "./skills"
+  "skills": "./skills",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "VENICE_API_KEY": {
+        "type": "string",
+        "title": "Venice API key",
+        "description": "An INFERENCE key from [venice.ai/settings/api](https://venice.ai/settings/api). Use a dedicated key with a spend limit, because the Venice MCP tools spend from it."
+      }
+    },
+    "required": ["VENICE_API_KEY"]
+  }
 }
