@@ -62,7 +62,7 @@ The request schema is **strict**: unknown fields are rejected with `400`.
 | `cfg_scale` | number | model default | `0 < x ≤ 20`. Higher = more prompt adherence. |
 | `steps` | int | `min(steps.max, 20)` | Only used by models that take steps (today `venice-sd35`, `lustify-*`, `wai-Illustrious`); on those it is `1..constraints.steps.max` and above max is `400`. Every other model, including `z-image-turbo` and `chroma`, accepts any integer and ignores it. |
 | `seed` | int | random | `-999999999..999999999`. Omit for a random seed (`0` is a literal seed, not "random"). Some models ignore it (e.g. GPT Image, Muse, Luma, Recraft, ImagineArt, Seedream V5 Pro, Nano Banana Pro, Grok Imagine). |
-| `variants` | int | 1 | 1–4. Only with `return_binary: false`. Only the **first** image uses your `seed`; the others get random seeds. Each variant is billed and rate-limited as one image. |
+| `variants` | int | 1 | 1–4. Only with `return_binary: false`. Only the **first** image uses your `seed`; the others get random seeds. Each variant is billed and rate-limited as one image. Variants the provider **explicitly rejects** under its content policy are omitted from a `200` (see [Partial variants](#partial-variants-and-content-policy)). |
 | `style_preset` | string | — | Exact value from `GET /image/styles`; anything else is `400`. |
 | `style_references` | array | — | Reference images that guide the aesthetic. Each item: `{ "image": <raw base64, data URI, or http(s) URL; < 8 MB; not SVG>, "strength": 0.1–1 (default 0.5) }`. Only on models with `supportsStyleReferences: true`, max `constraints.maxStyleReferences` entries; otherwise `400`. `strength` is ignored when `constraints.supportsStyleReferenceStrength` is `false`. |
 | `lora_strength` | int | — | 0–100. Only applies to models that use LoRAs. |
@@ -88,6 +88,8 @@ The request schema is **strict**: unknown fields are rejected with `400`.
 }
 ```
 
+`images` is required. A partial `200` can contain fewer entries than `variants`. When the provider dropped rejected variants, the body also includes `content_policy_violation_count` (integer ≥ 1) — the number omitted. That field is absent on a full response.
+
 Send `Accept-Encoding: gzip, br` to get the JSON compressed.
 
 With `return_binary: true`, the body is the raw image; `Content-Type` is detected from the bytes (`image/webp`, `image/png`, or `image/jpeg`).
@@ -96,7 +98,8 @@ With `return_binary: true`, the body is the raw image; `Content-Type` is detecte
 
 | Header | Meaning |
 |---|---|
-| `x-venice-is-content-violation` | `"true"` if the image was blocked. The call still returns `200`: JSON images are blacked out; binary returns a PNG placeholder. You are not charged. |
+| `x-venice-is-content-violation` | `"true"` if a returned image was blocked and replaced (JSON: blacked-out image; binary: PNG placeholder). The call can still be `200`, and you are not charged for a blocked image. |
+| `x-venice-content-violation-count` | Present when ≥ 1 requested variant was **omitted** because the provider explicitly rejected it. Same integer as body `content_policy_violation_count`. Other moderation outcomes still return a blacked-out image and set `x-venice-is-content-violation` instead of omitting the slot. |
 | `x-venice-is-blurred` | `"true"` if `safe_mode` blurred the output. |
 | `x-venice-enhanced-prompt` | URL-encoded rewritten prompt (only when `enhance_prompt` produced one). |
 | `x-venice-model-deprecation-warning`, `x-venice-model-deprecation-date`, `x-venice-deprecated`, `x-venice-deprecated-replacement` | Present when the model is scheduled for or already in deprecation. |
@@ -267,12 +270,19 @@ await fs.writeFile(`out.${ext}`, buf)
 | `402` | No credentials at all (x402 payment-requirements body + `PAYMENT-REQUIRED` header), insufficient balance (Bearer: `"Insufficient USD or Diem balance…"`; x402 wallet: `PAYMENT_REQUIRED` body + header), or the API key's USD/DIEM spend limit is reached. |
 | `403` | The API key's `modelPrivacy` setting blocks this model (e.g. a `PRIVATE_ONLY` key calling an `anonymized` model), or the model is unavailable in your region or restricted for your account. |
 | `404` | Model not found or retired (message names the replacement when there is one). On `/images/generations`, unknown IDs fall back to the default model instead. |
-| `422` | Reference image too large in pixels (over 7680×4320). |
+| `422` | Content-policy rejection, or (on `/image/generate` only) a style-reference image over 7680×4320. Body is `ImageContentViolationError`: `{ "error": "…" }` plus optional `suggested_prompt`, `recommended_model`, and `retryable`. Pixel-limit `422`s omit `retryable`. `/images/generations` lists this status only for content policy. |
 | `429` | Rate limited, or the upstream provider is overloaded (`Retry-After` is set). |
 | `500` | Inference failed. |
 | `503` | Model at capacity or offline. Retry with jitter. |
 
-Content-policy violations are **not** an error on these endpoints. You get `200` with `x-venice-is-content-violation: true` and a blocked image, and no charge. See [`venice-errors`](../venice-errors/SKILL.md) for body shapes and retry strategy.
+### Partial variants and content policy
+
+Two different content-policy outcomes exist on `/image/generate` (and a `422` on `/images/generations`):
+
+1. **`422` `ImageContentViolationError`** — Venice or the provider rejected the request. Optional `suggested_prompt` (retry once if the user consents), `recommended_model` (a catalog image-model id), and `retryable` (`true` if the same request might pass a nondeterministic provider moderator; `false` if it would be rejected again).
+2. **`200` with blocked or missing images** — some provider moderation still returns `200`. Blacked-out images set `x-venice-is-content-violation: true` (not charged). Variants the provider **explicitly rejects** are dropped from `images[]`; `content_policy_violation_count` / `x-venice-content-violation-count` is the number omitted. Do not assume `images.length === variants`.
+
+Treat a `422` as terminal unless `retryable` is `true` (one same-request retry) or you retry with `suggested_prompt` / `recommended_model`. See [`venice-errors`](../venice-errors/SKILL.md).
 
 ## Gotchas
 
@@ -280,7 +290,7 @@ Content-policy violations are **not** an error on these endpoints. You get `200`
 - `aspect_ratio` isn't validated on `/image/generate`, so a value the model doesn't list usually falls back to its default without an error. A `resolution` or `quality` the model doesn't list is a `400`.
 - `variants > 1` requires `return_binary: false`.
 - Grok Imagine models return the provider's bytes unchanged when nothing is blurred, so the output format may not match `format` and EXIF isn't embedded. Trust `Content-Type`, or sniff the bytes.
-- Always check `x-venice-is-content-violation`. A blocked image still arrives as a `200`.
+- Check `x-venice-is-content-violation` **and** `res.ok`. A blocked image can still arrive as a `200`; a policy rejection is now also a `422`. On `variants > 1`, compare `images.length` to `variants` before treating the array as complete.
 - `style_references` on a model without `supportsStyleReferences: true` is a `400`, not a silent no-op.
 - `enhance_prompt` bills $0.04 each time it produces a rewrite. Leave it off for cost- or latency-sensitive calls.
 - For OpenAI-compat, `response_format: "url"` returns a **data URL**, not a hosted URL. Plan for that if you're saving to storage.
