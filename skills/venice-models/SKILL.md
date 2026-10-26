@@ -25,7 +25,7 @@ Three read-only endpoints for model discovery - all `GET`, all public:
 
 Anything else returns `400 { "error": "Invalid request parameters", "details": …, "issues": … }`.
 
-`music` includes long-form audio (songs, sound effects, ElevenLabs narration models) and any voice-changer models. `decision` lists the typed-judgment models used by `POST /decisions` (today: `jev-latest`, flagged `betaModel: true`) - see [`venice-decisions`](../venice-decisions/SKILL.md).
+`music` includes long-form audio (songs, sound effects, ElevenLabs narration models) and any voice-changer models. `decision` lists the typed-judgment models used by `POST /decisions` (each flagged `betaModel: true`; not Jev-only — read the catalog) - see [`venice-decisions`](../venice-decisions/SKILL.md).
 
 ## Use when
 
