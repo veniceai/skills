@@ -38,6 +38,16 @@ template/      Copy this as a starting point for a new skill
 | [`venice-augment`](./skills/venice-augment/SKILL.md) | `/augment/text-parser`, `/augment/scrape`, `/augment/search` |
 | [`venice-errors`](./skills/venice-errors/SKILL.md) | Error shapes, 402 payment required, 422 content policy, 429 rate limits, retry strategy |
 
+## Workflow skills
+
+Task-level skills that chain the reference skills above into a finished result. They use the [Venice MCP server](https://github.com/veniceai/venice-mcp-server) tools when it is connected, and the REST endpoints otherwise.
+
+| Skill | Produces |
+|---|---|
+| [`venice-create-image`](./skills/venice-create-image/SKILL.md) | Brief to finished images: model and style choice, variants, edits, upscale, cutouts, saving files |
+| [`venice-create-video`](./skills/venice-create-video/SKILL.md) | Idea to finished MP4: model limits, quote and confirm, queue, poll, clean up, save |
+| [`venice-create-audio`](./skills/venice-create-audio/SKILL.md) | Songs, instrumentals, loops, sound effects and voiceover, from quote to saved files |
+
 ## Using these skills
 
 Each skill is just a folder with a `SKILL.md` that starts with YAML frontmatter:
