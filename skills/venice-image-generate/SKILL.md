@@ -1,6 +1,6 @@
 ---
 name: venice-image-generate
-description: Generate images with Venice. Covers POST /image/generate (Venice-native), POST /images/generations (OpenAI-compatible), GET /image/styles (style presets), request fields (prompt, width/height, aspect_ratio, resolution, quality, cfg_scale, steps, seed, variants, style_preset, style_references, enhance_prompt, safe_mode, hide_watermark, format, return_binary), per-model constraints from GET /models, response formats and headers.
+description: Generate images with Venice. Covers POST /image/generate (Venice-native), POST /images/generations (OpenAI-compatible), GET /image/styles (style presets), request fields (prompt, width/height, aspect_ratio, resolution, quality, cfg_scale, steps, seed, variants, style_preset, style_references, enhance_prompt, safe_mode, hide_watermark, format, return_binary, transparent_background), OpenAI-compat background=transparent, per-model constraints from GET /models, response formats and headers.
 ---
 
 # Venice Image Generation
@@ -69,7 +69,8 @@ The request schema is **strict**: unknown fields are rejected with `400`.
 | `enhance_prompt` | bool | `false` | Rewrites the prompt to add visual detail before generating. Adds up to ~30 s and a $0.04 charge when a rewrite is produced (fails open to your original prompt). The final prompt comes back URL-encoded in the `x-venice-enhanced-prompt` response header. |
 | `disable_prompt_optimization_thinking` | bool | model default | Skip the model's prompt-optimization thinking step for speed. Only honored by models with `supportsOptimizePromptThinking: true` (e.g. `seedream-v5-pro`, `qwen-image-3`). |
 | `enable_web_search` | bool | `false` | Only for models with `supportsWebSearch: true` (currently `nano-banana-2`, `nano-banana-pro`); ignored elsewhere. The spec warns that search can cost extra, but today the per-image charge is the same with or without it. |
-| `format` | `"webp"`/`"png"`/`"jpeg"` | `webp` | Output image format. |
+| `format` | `"webp"`/`"png"`/`"jpeg"` | `webp` | Output image format. `transparent_background: true` requires `png` or `webp` (the default `webp` is valid; `jpeg` is a `400`). |
+| `transparent_background` | bool | omit / `false` | Return PNG/WebP with an alpha channel. Only on models whose `constraints.supportsTransparentBackground` is `true` (check `GET /models?type=image`; currently the GPT Image 2.5 / 1.5 family). Unsupported model or `format: "jpeg"` → `400`. Omit or `false` keeps the model default background. |
 | `return_binary` | bool | `false` | `true` → raw image bytes; `false` → JSON with base64. |
 | `embed_exif_metadata` | bool | `false` | Embed prompt info in EXIF. |
 | `hide_watermark` | bool | `false` | Only matters on Venice's flat-priced models (`z-image-turbo`, `venice-sd35`, `chroma`, `lustify-*`, `wai-Illustrious`). All other models are never watermarked. Images classified as adult content and very small images are never watermarked either. |
@@ -132,16 +133,17 @@ const b64 = res.data[0].b64_json
 | `model` | string | Required in practice: omitting it (or sending `""`) returns `400 "model is required"`, even though the spec lists a `"default"` default. Unknown IDs (e.g. `dall-e-3`) silently fall back to Venice's default image model (`z-image-turbo`). |
 | `prompt` | string, 1–1500 chars | Required. 1500 is the cap here regardless of model. |
 | `size` | `auto` (default → 1024×1024), `256x256`, `512x512`, `1024x1024`, `1536x1024`, `1024x1536`, `1792x1024`, `1024x1792` | Mapped to width/height, so it only affects pixel-sized models; aspect-ratio models use their default aspect ratio. |
-| `output_format` | `jpeg` / `png` / `webp` | Defaults to `png`. |
+| `output_format` | `jpeg` / `png` / `webp` | Defaults to `png`. `background: "transparent"` requires `png` or `webp` (`jpeg` is a `400`). |
 | `response_format` | `b64_json` (default) / `url` | `url` returns a `data:` URL (not a hosted URL). |
 | `moderation` | `auto` (default, safe mode on) / `low` (safe mode off) | — |
 | `n` | `1` | Only one image per call. |
 | `anon_user_id` | string | Same as on `/image/generate`. |
-| `quality`, `style`, `background`, `output_compression`, `user` | — | Accepted for OpenAI compatibility and ignored, but values must still be valid (`quality`: `auto`/`high`/`medium`/`low`/`hd`/`standard`; `style`: `vivid`/`natural`; `background`: `transparent`/`opaque`/`auto`; `output_compression`: 0–100). `user` is not used for inference and is not an alias of `anon_user_id`, but it does split the error budget per value (see [`venice-errors`](../venice-errors/SKILL.md#error-budget)). |
+| `background` | `transparent` / `opaque` / `auto` (default) / `null` | `transparent` returns an alpha channel on models with `constraints.supportsTransparentBackground: true` and `output_format` `png` or `webp`; otherwise `400`. `auto`, `opaque`, and `null` keep the model default background. Unknown model IDs still fall back to the default image model before this check. |
+| `quality`, `style`, `output_compression`, `user` | — | Accepted for OpenAI compatibility and ignored, but values must still be valid (`quality`: `auto`/`high`/`medium`/`low`/`hd`/`standard`; `style`: `vivid`/`natural`; `output_compression`: 0–100). `user` is not used for inference and is not an alias of `anon_user_id`, but it does split the error budget per value (see [`venice-errors`](../venice-errors/SKILL.md#error-budget)). |
 
 Response: `{ "created": <unix>, "data": [{ "b64_json": "..." }] }` (or `[{ "url": "data:image/png;base64,..." }]`). Images from this endpoint are never watermarked. Unknown fields are rejected with `400`.
 
-If you need `variants`, `seed`, `negative_prompt`, `cfg_scale`, `aspect_ratio`, `resolution`, `quality`, `style_preset`, or `style_references`, switch to `/image/generate`.
+If you need `variants`, `seed`, `negative_prompt`, `cfg_scale`, `aspect_ratio`, `resolution`, `quality`, `style_preset`, `style_references`, or the Venice-native `transparent_background` flag (same capability as `background: "transparent"` here), switch to `/image/generate`.
 
 ## `/image/styles` — list presets
 
@@ -172,6 +174,7 @@ Inspect each model's `model_spec`:
 - `constraints.steps.{default,max}` — step bounds. Every model lists them, but only a few use `steps` (see the field table).
 - `constraints.widthHeightDivisor` — pixel-sized models work best with `width`/`height` as multiples of this (8 or 16). The API does not validate it.
 - `supportsStyleReferences`, `constraints.maxStyleReferences`, `constraints.supportsStyleReferenceStrength` — style-reference support.
+- `constraints.supportsTransparentBackground` — present as `true` only on models that accept `transparent_background` / `background: "transparent"` (PNG or WebP output).
 - `supportsWebSearch`, `supportsOptimizePromptThinking` — whether those request flags do anything.
 - `privacy` (`private` / `anonymized`) and `uncensored` — privacy tier and content posture.
 - Pricing: `pricing.generation.usd` (flat per image), or `pricing.resolutions[tier].usd` for resolution-tiered models, plus `pricing.quality[tier][level].usd` for quality-tiered models.
@@ -262,7 +265,7 @@ await fs.writeFile(`out.${ext}`, buf)
 
 | Code | Meaning |
 |---|---|
-| `400` | Bad params: missing `model`, schema violation, unknown field, prompt too long, `steps` above max (on models that use steps), invalid `style_preset`, unsupported `resolution`/`quality` for the model, `width`/`height` sent to `qwen-image`/`qwen-image-3`/`qwen-image-3-pro`, `variants` with `return_binary: true`, `style_references` on an unsupported model or over the cap, unreachable/corrupt reference image. |
+| `400` | Bad params: missing `model`, schema violation, unknown field, prompt too long, `steps` above max (on models that use steps), invalid `style_preset`, unsupported `resolution`/`quality` for the model, `width`/`height` sent to `qwen-image`/`qwen-image-3`/`qwen-image-3-pro`, `variants` with `return_binary: true`, `style_references` on an unsupported model or over the cap, unreachable/corrupt reference image, `transparent_background` (or `background: "transparent"`) on a model without `supportsTransparentBackground` or with JPEG output. |
 | `401` | Auth failed. |
 | `402` | No credentials at all (x402 payment-requirements body + `PAYMENT-REQUIRED` header), insufficient balance (Bearer: `"Insufficient USD or Diem balance…"`; x402 wallet: `PAYMENT_REQUIRED` body + header), or the API key's USD/DIEM spend limit is reached. |
 | `403` | The API key's `modelPrivacy` setting blocks this model (e.g. a `PRIVATE_ONLY` key calling an `anonymized` model), or the model is unavailable in your region or restricted for your account. |
@@ -282,5 +285,6 @@ Content-policy violations are **not** an error on these endpoints. You get `200`
 - Grok Imagine models return the provider's bytes unchanged when nothing is blurred, so the output format may not match `format` and EXIF isn't embedded. Trust `Content-Type`, or sniff the bytes.
 - Always check `x-venice-is-content-violation`. A blocked image still arrives as a `200`.
 - `style_references` on a model without `supportsStyleReferences: true` is a `400`, not a silent no-op.
+- `transparent_background: true` (and OpenAI-compat `background: "transparent"`) is a `400` unless `GET /models` lists `constraints.supportsTransparentBackground: true` and the output format is PNG or WebP. Do not send it on `z-image-turbo` or other models that omit the flag.
 - `enhance_prompt` bills $0.04 each time it produces a rewrite. Leave it off for cost- or latency-sensitive calls.
 - For OpenAI-compat, `response_format: "url"` returns a **data URL**, not a hosted URL. Plan for that if you're saving to storage.

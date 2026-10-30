@@ -1,6 +1,6 @@
 ---
 name: venice-image-edit
-description: Transform existing images with Venice. Covers POST /image/edit (prompt-driven single-image edit), /image/multi-edit (compose several images, per-model input cap, quality tiers), /image/upscale (2x–4x upscale with creativity), and /image/background-remove (transparent PNG cutout). Input formats (base64, data URI, URL, multipart), per-model constraints from GET /models?type=inpaint, response headers, and errors.
+description: Transform existing images with Venice. Covers POST /image/edit (prompt-driven single-image edit, transparent_background), /image/multi-edit (compose several images, per-model input cap, quality tiers, transparent_background), /image/upscale (2x–4x upscale with creativity), and /image/background-remove (transparent PNG cutout). Input formats (base64, data URI, URL, multipart), per-model constraints from GET /models?type=inpaint, response headers, and errors.
 ---
 
 # Venice Image Editing
@@ -49,6 +49,7 @@ Per model, read `model_spec.constraints`:
 - `combineImages` — `false` means the model takes exactly one input image.
 - `maxInputImages` — input-image cap for multi-edit. When it's absent and `combineImages` is `true`, the cap is **3**.
 - `supportsOptimizePromptThinking` — whether `disable_prompt_optimization_thinking` does anything.
+- `supportsTransparentBackground` — present as `true` only on models that accept `transparent_background` (PNG or WebP `output_format`).
 
 Pricing: `pricing.inpaint.usd` per edit, `pricing.resolutions[tier]` / `pricing.quality[tier][level]` on tiered models, and `pricing.inputImages` (`included` + `additional.usd` per extra image) on models that charge per additional input image. When `included` is `0` (e.g. `qwen-image-3-edit`, the Grok Imagine edits), every input image is surcharged, including the single image on `/image/edit`.
 
@@ -81,7 +82,8 @@ Multipart equivalent: send `image` as a file part and the other fields as text p
 | `image` | Required. See the shared rules for accepted input formats. |
 | `aspect_ratio` | Optional: `auto`, `1:1`, `3:2`, `16:9`, `21:9`, `9:16`, `2:3`, `3:4`, `4:3`, `4:5`. Must be in the model's `constraints.aspectRatios`, or you get `400`. Omit it (or send `auto` where listed) to infer from the input image. |
 | `resolution` | Optional, e.g. `"1K"`, `"2K"`, `"4K"`. Must be in the model's `constraints.resolutions`. **Sending any `resolution` to a model without resolutions is a `400` on this endpoint.** Defaults to the model's `defaultResolution`. |
-| `output_format` | Optional `jpeg` (or `jpg`) \| `png` \| `webp`. When omitted: PNG for 1K (or no resolution), JPEG for 2K/4K. |
+| `output_format` | Optional `jpeg` (or `jpg`) \| `png` \| `webp`. When omitted: PNG for 1K (or no resolution), JPEG for 2K/4K, or PNG at any resolution when `transparent_background` is true. JPEG with `transparent_background: true` is a `400`. |
+| `transparent_background` | Optional bool. Return PNG/WebP with an alpha channel. Only on models whose `constraints.supportsTransparentBackground` is `true` (check `GET /models?type=inpaint`; currently the GPT Image 2.5 / 1.5 edit IDs). Unsupported model or JPEG `output_format` → `400`. Omit or `false` keeps the model default background. |
 | `enhance_prompt` | Optional bool, default `false`. Rewrites your prompt against the input image before editing. Adds up to ~30 s and a $0.04 charge when a rewrite is produced. The rewritten prompt comes back URL-encoded in the `x-venice-enhanced-prompt` response header. |
 | `disable_prompt_optimization_thinking` | Optional bool. Only honored by models with `supportsOptimizePromptThinking: true`; ignored elsewhere. |
 | `safe_mode` | Default `true`; blurs adult content. |
@@ -148,7 +150,8 @@ Multipart accepts only file parts for `images` (no URLs or base64), and at most 
 | `aspect_ratio` | Optional, same enum as `/image/edit`. Must be in the model's `aspectRatios`. `auto` or omitted infers it from the **first** image. |
 | `resolution` | Optional. Must be in the model's `resolutions` if it has any. Silently dropped for models without resolutions (unlike `/image/edit`). Defaults to `defaultResolution`. |
 | `quality` | Optional `low` \| `medium` \| `high`, for models with `constraints.qualities` (GPT Image 2 / 2.5 edits, `ideogram-v4-5-edit`; Grok Imagine 2.0 edit takes `low`/`medium`). A value outside the list is `400`; ignored on other models. Omitted → `defaultQuality`. Changes the price. |
-| `output_format` | Optional `jpeg`/`jpg` \| `png` \| `webp`. Omitted → PNG for 1K, JPEG for 2K/4K. |
+| `output_format` | Optional `jpeg`/`jpg` \| `png` \| `webp`. Omitted → PNG for 1K, JPEG for 2K/4K, or PNG at any resolution when `transparent_background` is true. JPEG with `transparent_background: true` is a `400`. |
+| `transparent_background` | Optional bool. Same gate as `/image/edit`: `constraints.supportsTransparentBackground: true` and PNG/WebP `output_format`. Present on both JSON and multipart bodies. |
 | `enhance_prompt` | Optional bool, default `false`. Same behavior, $0.04 charge, and `x-venice-enhanced-prompt` header as `/image/edit`. |
 | `disable_prompt_optimization_thinking` | Optional bool. |
 | `safe_mode` | Default `true`. |
@@ -222,7 +225,7 @@ curl https://api.venice.ai/api/v1/image/background-remove \
 
 | Code | Cause |
 |---|---|
-| `400` | Bad params: schema violation or unknown field, invalid or corrupt image, image too small, multi-edit image over 8K, unknown/non-edit model (`Invalid model id`), prompt over the model limit, `aspect_ratio`/`resolution`/`quality` not supported by the model, too many input images, blocked URL, unsupported `Content-Type` (edit, upscale, background-remove). |
+| `400` | Bad params: schema violation or unknown field, invalid or corrupt image, image too small, multi-edit image over 8K, unknown/non-edit model (`Invalid model id`), prompt over the model limit, `aspect_ratio`/`resolution`/`quality` not supported by the model, `transparent_background` on a model without `supportsTransparentBackground` or with JPEG `output_format`, too many input images, blocked URL, unsupported `Content-Type` (edit, upscale, background-remove). |
 | `401` | Auth failed. |
 | `402` | No credentials at all (x402 payment-requirements body + `PAYMENT-REQUIRED` header), insufficient balance (Bearer: `"Insufficient USD or Diem balance…"`; x402 wallet: `PAYMENT_REQUIRED` body + header), or the API key's USD/DIEM spend limit is reached. |
 | `403` | The API key's `modelPrivacy` setting blocks the model. A `PRIVATE_ONLY` key can't use anonymized models, which includes most edit models and `bria-bg-remover`. |
@@ -242,6 +245,7 @@ A `422` content-policy rejection is normally not charged. If Venice's own modera
 - `resolution` behaves differently per endpoint. On `/image/edit`, sending it to a model without resolutions is a `400`. On `/image/multi-edit`, it is silently dropped.
 - `quality` exists on `/image/multi-edit` but not on `/image/edit`.
 - Don't send `aspect_ratio: "auto"` to a model whose `aspectRatios` don't include it (e.g. `gpt-image-2-edit`). Omit the field instead.
+- `transparent_background: true` is a `400` unless `GET /models?type=inpaint` lists `constraints.supportsTransparentBackground: true` and `output_format` is `png` or `webp`. It is not a substitute for [`/image/background-remove`](#imagebackground-remove): that endpoint always returns a PNG cutout via `bria-bg-remover`.
 - For multipart `/image/multi-edit`, send **multiple parts with the same field name `images`**. Order matters: the base image goes first.
 - `/image/upscale` needs **raw** base64 in JSON. Strip any `data:image/...;base64,` prefix. Edit, multi-edit, and background-remove accept data URIs.
 - `/image/upscale` with `scale: 4` on a large input is silently reduced to stay under 16 MP, and it still bills at the 4× rate if the effective scale is above 2.
