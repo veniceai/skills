@@ -59,7 +59,8 @@ curl https://api.venice.ai/api/v1/billing/balance \
 - `canConsume` is `true` when the account's spendable DIEM, earned credits, bundled credits and USD total at least $0.10. It does **not** account for per-key limits or the account's API tier — the real admission check runs on each inference request. Use `GET /api_keys/rate_limits` → `accessPermitted` for a check that includes those.
 - `consumptionCurrency` is the first currency with a positive balance, in the order `DIEM`, `EARNED_CREDITS`, `BUNDLED_CREDITS`, `USD`, or `null`. The spec enum also lists `VCU`, but it is never returned.
 - `balances.diem` is `null` when the account isn't staking DIEM; otherwise the remaining DIEM this epoch.
-- `balances.usd`, `balances.bundledCredits` and `balances.earnedCredits` are `null` when not positive.
+- `balances.usd` is the USD balance **net of pending holds**. It is `null` when zero (not when negative). A negative value means the account owes USD from earlier usage, or a pending hold exceeds the posted USD balance, until the hold is released.
+- `balances.bundledCredits` and `balances.earnedCredits` are `null` when not positive.
 - `diemEpochAllocation` is the total DIEM for the current epoch — `balances.diem / diemEpochAllocation` = remaining fraction.
 
 ## `GET /billing/usage-history`
