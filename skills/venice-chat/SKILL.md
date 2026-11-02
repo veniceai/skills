@@ -201,7 +201,7 @@ Per-**message** caps: 10 `image_url`, 5 `input_audio`, 3 `video_url`, 5 `file` p
 
 ### Prompt caching (`cache_control`)
 
-Any content part can carry `{"cache_control": {"type": "ephemeral"}}` or `{"type": "ephemeral", "ttl": "1h"}`. Explicit markers matter for models that require them (Claude); other models cache automatically on prefix matches. Those models allow at most 4 breakpoints per request; Venice adds its own to the system prompt and conversation history only while your markers leave slots free. Pair with a stable `prompt_cache_key` for consistent routing. Cache read / write prices are per model (`model_spec.pricing.cache_input` / `cache_write`); hits are reported in `usage.prompt_tokens_details`.
+Any content part can carry `{"cache_control": {"type": "ephemeral"}}`. The same object is also accepted on `assistant` and `tool` messages (not on `user` / `system` / `developer` at the message level). `ttl` (example `"1h"`) is a beta field that requires a special header — omit it unless you have that header. Explicit markers matter for models that require them (Claude); other models cache automatically on prefix matches. Those models allow at most 4 breakpoints per request; Venice adds its own to the system prompt and conversation history only while your markers leave slots free. Pair with a stable `prompt_cache_key` for consistent routing. Cache read / write prices are per model (`model_spec.pricing.cache_input` / `cache_write`); hits are reported in `usage.prompt_tokens_details`.
 
 ## Tools & function calling
 
