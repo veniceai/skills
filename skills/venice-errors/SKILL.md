@@ -167,7 +167,7 @@ On inference routes a bad `SIGN-IN-WITH-X` returns `{ "error": "<message>", "cod
 | `422` | `ContentViolationError`, `ProviderContentPolicyError`, or `StandardError` | Content policy, or media that can't be processed (dimensions, duration, unreadable audio). | Change the prompt / media. One retry with `suggested_prompt` if offered. |
 | `429` | `StandardError` or `{ error, code }` | Request/token rate limit, error budget exhausted, model overloaded, x402 concurrency (`X402_CONCURRENCY_LIMIT`, 5 in-flight per wallet), or a per-route limiter (crypto RPC, `/x402/*`, `/tee/*`, retired endpoints). | See rate limits below. |
 | `500` | `StandardError` | Unexpected failure. | Backoff and retry. |
-| `502` | `StandardError` | Upstream failure (TTS, ASR, TEE, video fetch). | Backoff and retry. |
+| `502` | `StandardError` | Upstream failure (TTS, ASR, TEE, video fetch, `/augment/scrape`). | Backoff and retry. |
 | `503` | `StandardError` | Model offline or at capacity. | Backoff; consider a fallback model. |
 | `504` | `StandardError` | Request took too long. Mostly non-streaming chat. | Use `stream: true` or a smaller request. |
 
