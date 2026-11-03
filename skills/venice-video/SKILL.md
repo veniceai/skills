@@ -1,6 +1,6 @@
 ---
 name: venice-video
-description: Generate videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video, first/last-frame transitions, video-to-video and upscale, audio input, reference images / videos / audio (R2V) and their per-model caps, Kling elements and scene images, Seedance source-matched edit/extend and omni_reference_task_type, H3 Max Multi-Angle camera_trajectory, and replayed async failures. POST /video/transcriptions is retired (410) — use chat completions with video_url.
+description: Generate videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video (including image_strength), first/last-frame transitions, video-to-video and upscale, audio input, reference images / videos / audio (R2V) and their per-model caps, Kling elements and scene images, Seedance source-matched edit/extend and omni_reference_task_type, H3 Max Multi-Angle camera_trajectory, and replayed async failures. POST /video/transcriptions is retired (410) — use chat completions with video_url.
 ---
 
 # Venice Video
@@ -127,6 +127,7 @@ Body: `model` + `queue_id` only. Response: `200` `{"success": true}`, or `{"succ
 | `upscale_factor` | integer `1` / `2` / `4` | Upscale models only. `1` = enhancement only. Defaults to the model default (`2` for `topaz-video-upscale`). |
 | `audio` | bool | Only when `audio_configurable: true`; default `true`. |
 | `image_url` | URL or `data:` URL | Start frame for image-to-video. Rejected on text-to-video models. |
+| `image_strength` | number, 0–1 | How strongly that input image guides an image-to-video job. Queue-only (`POST /video/quote` has no such field; the spec says it does not change the quoted price). Omitted values use the provider default (`1`). Send it only on models that declare image strength — `GET /models?type=video` currently lists no such constraint key, so omit it unless a model starts advertising one. |
 | `end_image_url` | URL or `data:` URL | End frame, on models that support one (otherwise `400`). **Required** for transition models (`pixverse-c1-transition`, `pixverse-v5.6-transition`, `flux-3-first-last-frame-to-video`). |
 | `audio_url` | URL or `data:` URL | Models with `audio_input: true`. WAV / MP3; generally ≤ 30 s and ≤ 15 MB. On Seedance 2.x R2V and MiniMax H3 R2V it is treated as one more reference audio (same per-clip limits). |
 | `video_url` | URL or `data:` URL | Required for upscale and video-to-video models. MP4, MOV, WebM and other common containers. |
@@ -315,7 +316,8 @@ See [`venice-errors`](../venice-errors/SKILL.md) for body shapes and retry strat
 
 ## Gotchas
 
-- **The quote validates less than the queue.** Quote drops unsupported fields; queue returns `400` for them. Build the queue body from `/models` constraints, not from a successful quote.
+- **The quote validates less than the queue.** Quote drops unsupported fields; queue returns `400` for them. Build the queue body from `/models` constraints, not from a successful quote. `image_strength` is queue-only and is not a quote input.
+- **`image_strength` is optional and model-gated.** Range 0–1; omit it (provider default 1) unless `GET /models?type=video` shows that the model declares image strength. No public model currently lists such a constraint.
 - **`aspect_ratio` is required on `/video/queue`** whenever the model lists aspect ratios, and forbidden when it lists none.
 - **Queue success ≠ generation success.** Moderation and provider errors surface on `/video/retrieve`, with the refund status in `credits_refunded` where present. Always handle non-`200` retrieve responses. Runway content-policy rejections are not refunded.
 - `download_url` is **only** returned for VPS-backed models (the Grok Imagine models) — check for the field, not the id. Handle both paths: binary from `/video/retrieve`, or `GET download_url` after `COMPLETED`. It expires within 24 h — download promptly.
