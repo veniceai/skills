@@ -1,6 +1,6 @@
 ---
 name: venice-errors
-description: Handle Venice API errors correctly. Covers the error body shapes (StandardError, DetailedError with validation details/issues, OpenAI-style context_length_exceeded, upstream provider rejections with request_id including TypeSafe/FastAPI validation errors, ContentViolationError, ProviderContentPolicyError, PayloadTooLargeError, the two x402 402 bodies), every meaningful status code (400-504, including 410 for retired endpoints), the three families of rate-limit headers, the per-key error budget (FAILED_REQUESTS / UNSUPPORTED_FEATURE_REQUESTS), Retry-After on overloaded models, SSE stream errors, and a backoff strategy that won't trip the error budget.
+description: Handle Venice API errors correctly. Covers the error body shapes (StandardError, DetailedError with validation details/issues, OpenAI-style context_length_exceeded, upstream provider rejections with request_id including TypeSafe/FastAPI validation errors, ContentViolationError, ImageContentViolationError on /image/generate and /images/generations, ProviderContentPolicyError, PayloadTooLargeError, the two x402 402 bodies), every meaningful status code (400-504, including 410 for retired endpoints), the three families of rate-limit headers, the per-key error budget (FAILED_REQUESTS / UNSUPPORTED_FEATURE_REQUESTS), Retry-After on overloaded models, SSE stream errors, and a backoff strategy that won't trip the error budget.
 ---
 
 # Venice errors & retries
@@ -63,7 +63,7 @@ When the request passed Venice's schema but the model provider rejected it, Veni
 
 FastAPI-style validation errors (e.g. from the TypeSafe provider behind `POST /decisions`, which answers `422`) are surfaced as `400` with up to five `field.path: message` items joined by `; `. If Venice can't extract a message you get `"Invalid request parameters. For assistance, please reach out to support@venice.ai"`, followed by `" and reference request ID: <id>"` when there is one. These count against the lenient unsupported-feature budget on chat / responses (see [Error budget](#error-budget)). Fix the input; quote `request_id` to support.
 
-### 5. `ContentViolationError` - `422` content policy
+### 5. `ContentViolationError` / `ImageContentViolationError` - `422` content policy
 
 ```json
 {
@@ -72,7 +72,13 @@ FastAPI-style validation errors (e.g. from the TypeSafe provider behind `POST /d
 }
 ```
 
-Returned by chat, responses, image edit and multi-edit, and audio generation. `/image/generate` does not use it (a blocked image comes back as a `200` with `x-venice-is-content-violation: true`), and video content-policy rejections arrive on `/video/retrieve` rather than on queue. `suggested_prompt` is only emitted by `/audio/queue` and `/audio/retrieve`; when present, retry once with it if the user consents. Other `422`s include `"Your input was blocked by content moderation."` and media-validation failures (image too large, bad aspect ratio, audio/video duration out of range, ASR unable to process the audio).
+Returned by chat, responses, image generate and the OpenAI-compat `/images/generations`, image edit and multi-edit, and audio generation. Video content-policy rejections arrive on `/video/retrieve` rather than on queue.
+
+`/image/generate` and `/images/generations` use the spec's `ImageContentViolationError` shape — `error` plus optional `suggested_prompt`, `recommended_model` (a catalog image-model id), and `retryable` (boolean, present on every content-policy rejection: `true` if retrying the **same** request may succeed because provider moderation is nondeterministic; `false` if it would be rejected again). `retryable` is absent on other `422`s on those routes, such as a style-reference image that exceeds the pixel limit.
+
+A **blocked but accepted** image on `/image/generate` can still be a `200` with `x-venice-is-content-violation: true` (blacked-out JSON image or a PNG placeholder) and, when variants were dropped, `content_policy_violation_count` / `x-venice-content-violation-count`. Do not assume generate never `422`s.
+
+`suggested_prompt` is emitted by `/audio/queue`, `/audio/retrieve`, and now the image-generate `422`. When present, retry once with it if the user consents. On image generate, `retryable: true` allows one same-request retry; `recommended_model` is an optional fallback id. Other `422`s include `"Your input was blocked by content moderation."` and media-validation failures (image too large, bad aspect ratio, audio/video duration out of range, ASR unable to process the audio).
 
 ### 6. `ProviderContentPolicyError` - `422` on `/video/retrieve`
 
@@ -164,7 +170,7 @@ On inference routes a bad `SIGN-IN-WITH-X` returns `{ "error": "<message>", "cod
 | `410` | `StandardError` | Retired endpoint (`GET /billing/usage`, `POST /video/transcriptions`). Message names the replacement. | Migrate. **Never retry.** |
 | `413` | `PayloadTooLargeError` | JSON body over 35 MB (`"Request body exceeds the maximum allowed size."`) or a multipart file over 25 MB. | Shrink the upload. |
 | `415` | `StandardError` | Rare: `/image/multi-edit` with an empty body, or a body sent with a `Content-Encoding` / charset the server can't decode (`"Request encoding is not supported"`). A wrong `Content-Type` on any route is answered with `400`. | Fix headers. |
-| `422` | `ContentViolationError`, `ProviderContentPolicyError`, or `StandardError` | Content policy, or media that can't be processed (dimensions, duration, unreadable audio). | Change the prompt / media. One retry with `suggested_prompt` if offered. |
+| `422` | `ContentViolationError`, `ImageContentViolationError`, `ProviderContentPolicyError`, or `StandardError` | Content policy, or media that can't be processed (dimensions, duration, unreadable audio). Image generate/generations may also set `retryable` / `recommended_model`. | Change the prompt / media. One retry with `suggested_prompt` if offered; one same-request retry only when `retryable` is `true`. |
 | `429` | `StandardError` or `{ error, code }` | Request/token rate limit, error budget exhausted, model overloaded, x402 concurrency (`X402_CONCURRENCY_LIMIT`, 5 in-flight per wallet), or a per-route limiter (crypto RPC, `/x402/*`, `/tee/*`, retired endpoints). | See rate limits below. |
 | `500` | `StandardError` | Unexpected failure. | Backoff and retry. |
 | `502` | `StandardError` | Upstream failure (TTS, ASR, TEE, video fetch). | Backoff and retry. |
@@ -217,6 +223,7 @@ The unsupported-feature bucket uses the same wording with `> 200`. So a client t
 - Any retry with wallet auth needs a **newly signed** `SIGN-IN-WITH-X` header - each nonce is accepted once, so re-sending the original header fails with `X402_SIGN_IN_NONCE_REUSED`.
 - `402` on an API key - surface to the user.
 - `422` with `suggested_prompt` - one retry with the safer prompt.
+- `422` with `retryable: true` (image generate / `/images/generations`) - one retry of the same request. If `recommended_model` is present, optionally switch to that catalog id instead.
 
 ### Retry with backoff
 
