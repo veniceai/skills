@@ -1,6 +1,6 @@
 ---
 name: venice-api-keys
-description: Manage Venice API keys. Covers GET/POST/PATCH/DELETE /api_keys, GET /api_keys/{id}, GET /api_keys/rate_limits, GET /api_keys/rate_limits/log, the two-step /api_keys/generate_web3_key wallet flow, INFERENCE vs ADMIN key types, per-key consumption limits (USD / DIEM) with EPOCH / MONTH / LIFETIME reset windows, and per-key modelPrivacy (ALL / PRIVATE_TEXT / PRIVATE_ONLY).
+description: Manage Venice API keys. Covers GET/POST/PATCH/DELETE /api_keys, GET /api_keys/{id}, GET /api_keys/rate_limits, GET /api_keys/rate_limits/log, the two-step /api_keys/generate_web3_key wallet flow, INFERENCE vs ADMIN key types, per-key consumption limits (USD / DIEM) with EPOCH / MONTH / LIFETIME reset windows, per-key modelPrivacy (ALL / PRIVATE_TEXT / PRIVATE_ONLY), and per-key ipAllowlist (globally reachable IPv4/IPv6 addresses and CIDR subnets; empty list allows any IP).
 ---
 
 # Venice API Keys
@@ -11,7 +11,7 @@ Admin endpoints for managing Bearer API keys. Management routes need an **ADMIN*
 |---|---|---|
 | `GET /api_keys` | ADMIN | List your active keys (masked). |
 | `POST /api_keys` | ADMIN | Create a key. Response contains the **only copy of the secret**. |
-| `PATCH /api_keys` | ADMIN | Update `description`, `expiresAt`, `consumptionLimit`, `limitPeriod`, `modelPrivacy`. |
+| `PATCH /api_keys` | ADMIN | Update `description`, `expiresAt`, `consumptionLimit`, `limitPeriod`, `modelPrivacy`, `ipAllowlist`. |
 | `DELETE /api_keys?id=...` | ADMIN | Revoke a key. |
 | `GET /api_keys/{id}` | ADMIN | Full details for one key (usage, limits, expiration). |
 | `GET /api_keys/rate_limits` | any | Balances + per-model rate limits for the calling key. |
@@ -54,6 +54,7 @@ curl https://api.venice.ai/api/v1/api_keys \
       "consumptionLimits": { "usd": 50, "diem": 10, "vcu": null },
       "limitPeriod": "MONTH",
       "modelPrivacy": "ALL",
+      "ipAllowlist": [],
       "usage": { "trailingSevenDays": { "usd": "4.2000", "vcu": "0.0000", "diem": "0.0000" } },
       "currentPeriodUsage": { "usd": "12.5000", "diem": "0.0000" }
     }
@@ -78,7 +79,8 @@ curl https://api.venice.ai/api/v1/api_keys \
     "expiresAt": "2026-12-31T23:59:59Z",
     "consumptionLimit": { "usd": 50, "diem": 10 },
     "limitPeriod": "MONTH",
-    "modelPrivacy": "PRIVATE_ONLY"
+    "modelPrivacy": "PRIVATE_ONLY",
+    "ipAllowlist": ["11.22.33.44", "11.22.33.0/24", "2a00:1::/48"]
   }'
 ```
 
@@ -93,7 +95,8 @@ curl https://api.venice.ai/api/v1/api_keys \
     "expiresAt": "2026-12-31T23:59:59.000Z",
     "consumptionLimit": { "usd": 50, "diem": 10, "vcu": null },
     "limitPeriod": "MONTH",
-    "modelPrivacy": "PRIVATE_ONLY"
+    "modelPrivacy": "PRIVATE_ONLY",
+    "ipAllowlist": ["11.22.33.44/32", "11.22.33.0/24", "2a00:1::/48"]
   }
 }
 ```
@@ -112,6 +115,7 @@ curl https://api.venice.ai/api/v1/api_keys \
 - `consumptionLimit.vcu` — **deprecated** (legacy DIEM). Use `diem`.
 - `limitPeriod` — window the limits are measured over. Default `EPOCH`.
 - `modelPrivacy` — which models the key may call. Default `ALL`.
+- `ipAllowlist` — up to **100** globally reachable IPv4 or IPv6 addresses and CIDR subnets (each string ≤ 64 chars) allowed to use this key. An empty list allows requests from any IP. Responses always include `ipAllowlist`, in canonical CIDR notation (a single IPv4 address is returned as `/32`).
 
 ### `limitPeriod`
 
@@ -135,6 +139,21 @@ Enforced on every inference route. A disallowed model returns **`403`** (`"This 
 
 With a restricted key, `GET /models` returns only the models that key may call — the simplest way to pick an allowed model (see [`venice-models`](../venice-models/SKILL.md)).
 
+### `ipAllowlist`
+
+Enforced on every request that presents the key, including otherwise-public catalog routes (`GET /models`, `/models/traits`, `/models/compatibility_mapping`). A request whose source IP is not in the list returns **`403`**:
+
+```json
+{ "error": "This API key is restricted to configured IP addresses, and this request's source IP is not allowed" }
+```
+
+- Entries are globally reachable IPv4 or IPv6 addresses and CIDR subnets. The spec examples are `"11.22.33.44"`, `"11.22.33.0/24"`, and `"2a00:1::/48"`.
+- An empty list allows any IP. A non-empty list is an allowlist, not a blocklist.
+- Create/update accept up to 100 strings of at most 64 characters each. List, get, create, and update responses always include `ipAllowlist` and return entries in canonical CIDR notation.
+- `POST /api_keys/generate_web3_key` accepts the same field.
+
+Do not retry a 403 — fix the list or call from an allowed address.
+
 ## `PATCH /api_keys` — update
 
 ```bash
@@ -145,9 +164,9 @@ curl -X PATCH https://api.venice.ai/api/v1/api_keys \
 ```
 
 - `id` is required; everything else is optional and only the fields you send change. `apiKeyType` cannot be changed.
-- Mutable: `description` (≤ 64 chars), `expiresAt`, `consumptionLimit` (`usd` / `diem` / `vcu`, each may be `null` to remove that cap), `limitPeriod`, `modelPrivacy`.
-- Pass `"expiresAt": ""` or `null` to remove an expiration.
-- Returns `{ success: true, data: { id, apiKeyType, description, createdAt, expiresAt, lastUsedAt, last6Chars, consumptionLimits, limitPeriod, modelPrivacy } }`.
+- Mutable: `description` (≤ 64 chars), `expiresAt`, `consumptionLimit` (`usd` / `diem` / `vcu`, each may be `null` to remove that cap), `limitPeriod`, `modelPrivacy`, `ipAllowlist`.
+- Pass `"expiresAt": ""` or `null` to remove an expiration. Pass `"ipAllowlist": []` to allow any IP again.
+- Returns `{ success: true, data: { id, apiKeyType, description, createdAt, expiresAt, lastUsedAt, last6Chars, consumptionLimits, limitPeriod, modelPrivacy, ipAllowlist } }`.
 - An unknown or already-expired `id` → `400` `"API key not found or expired"`.
 
 ## `DELETE /api_keys?id=<uuid>` — revoke
@@ -161,7 +180,7 @@ The id may also be sent as a JSON body `{ "id": "..." }`. Returns `{"success": t
 
 ## `GET /api_keys/{id}` — details
 
-Returns `{ data: <key> }` with the same fields as a list entry (`usage.trailingSevenDays`, `currentPeriodUsage` when limited, `limitPeriod`, `modelPrivacy`, …). Unknown or expired id → `400` `"API key not found"`.
+Returns `{ data: <key> }` with the same fields as a list entry (`usage.trailingSevenDays`, `currentPeriodUsage` when limited, `limitPeriod`, `modelPrivacy`, `ipAllowlist`, …). Unknown or expired id → `400` `"API key not found"`.
 
 ## `GET /api_keys/rate_limits`
 
@@ -261,7 +280,7 @@ const { data } = await res.json()
 console.log(data.apiKey) // save this once
 ```
 
-- Body: `address`, `signature`, `token`, and `apiKeyType` are required; `description` defaults to `"Web3 API Key"`; `expiresAt`, `consumptionLimit`, `limitPeriod`, `modelPrivacy` work as in `POST /api_keys`.
+- Body: `address`, `signature`, `token`, and `apiKeyType` are required; `description` defaults to `"Web3 API Key"`; `expiresAt`, `consumptionLimit`, `limitPeriod`, `modelPrivacy`, `ipAllowlist` work as in `POST /api_keys`.
 - The signature is verified on Base (chain 8453). Verification failures are `400` with a specific message: bad address, expired/modified token, signature mismatch, or `"Wallet … has no staked VVV on Base"`.
 - The response has the same shape as `POST /api_keys`. The returned `apiKey` behaves exactly like a normal Bearer key. Staked VVV only gates minting: the key still spends DIEM, earned credits, bundled credits, or USD from the linked account.
 
@@ -285,6 +304,22 @@ await fetch(`${base}/api_keys`, {
 
 Revoke on churn.
 
+### Restrict a key to your servers' CIDRs
+
+```ts
+await fetch(`${base}/api_keys`, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${ADMIN_KEY}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    apiKeyType: 'INFERENCE',
+    description: `cust:${customerId}:edge`,
+    ipAllowlist: ['11.22.33.44', '11.22.33.0/24'],
+  }),
+})
+```
+
+Pass `"ipAllowlist": []` on `PATCH /api_keys` to open the key to any IP again.
+
 ### Health-check for a key
 
 ```ts
@@ -302,7 +337,7 @@ if (!data.accessPermitted) alert('Key blocked — top up or raise its limit')
 | `400` | Bad body (missing `apiKeyType`, `description` > 64 chars, malformed `expiresAt`, unknown field), 500 active keys reached, unknown/expired key id, or any Web3 verification failure. |
 | `401` | Invalid key, or a non-ADMIN key on an admin-only route (`"Admin API key required"`). |
 | `402` | No `Authorization` header (x402 auth challenge). On inference, `"API key USD spend limit exceeded…"` / `"API key DIEM spend limit exceeded…"` when the key's limit is used up. |
-| `403` | On inference: the model is not permitted by the key's `modelPrivacy`. |
+| `403` | The model is not permitted by the key's `modelPrivacy`, or this request's source IP is not in the key's `ipAllowlist` (`"This API key is restricted to configured IP addresses, and this request's source IP is not allowed"`). The IP check also applies to catalog routes when you send the key. |
 | `429` | Exceeded 20 key creations/min, or the generic API error budget. |
 | `500` | Transient; retry. |
 
@@ -313,6 +348,7 @@ if (!data.accessPermitted) alert('Key blocked — top up or raise its limit')
 - The USD limit covers USD, bundled credits and earned credits together.
 - `GET /api_keys/rate_limits` works with an `INFERENCE` key; `GET /api_keys/rate_limits/log` does **not** (ADMIN only).
 - `modelPrivacy` is enforced: a `PRIVATE_ONLY` key gets `403` for Anonymous models, and `/models` hides them from that key.
+- `ipAllowlist` is enforced on every request that presents the key, including `GET /models*`. An empty list means any IP; a non-empty list returns `403` from any other address. Responses use canonical CIDR notation.
 - `vcu` is legacy — use `diem`.
 - `expiresAt: ""` means "no expiration" on create; on update `""` or `null` **removes** an existing one.
 - Rate-limit log is capped at 50 entries — pull it frequently if debugging bursts.

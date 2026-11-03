@@ -13,7 +13,7 @@ Three read-only endpoints for model discovery - all `GET`, all public:
 | `/models/traits` | Trait → model ID map (e.g. `default`, `default_reasoning`, `highest_quality`). |
 | `/models/compatibility_mapping` | Legacy / third-party model ID → Venice model ID aliases. |
 
-**Auth is optional.** These routes need no API key, so a plain `curl` works. If you send `Authorization: Bearer $VENICE_API_KEY` the result is tailored to that caller: a key's `modelPrivacy` setting filters the list, beta-flagged accounts also see beta models, and partner accounts see their negotiated rates. An invalid key is not rejected - you just get the public view.
+**Auth is optional.** These routes need no API key, so a plain `curl` works. If you send `Authorization: Bearer $VENICE_API_KEY` the result is tailored to that caller: a key's `modelPrivacy` setting filters the list, beta-flagged accounts also see beta models, and partner accounts see their negotiated rates. An invalid key is not rejected - you just get the public view. A valid key whose `ipAllowlist` excludes this request's source IP is rejected with `403` (`"This API key is restricted to configured IP addresses, and this request's source IP is not allowed"`) even on these otherwise-public routes.
 
 **`?type=` values** (default `text` when omitted):
 
@@ -246,5 +246,5 @@ Cache-write tokens (models with `cache_write`) are billed at that rate instead o
 - `regionRestrictions` lists blocked countries, not allowed ones.
 - `uncensored` is omitted rather than `false` - test with `=== true`.
 - Traits and aliases differ by `type` - there is no global default; always pass `?type=...`.
-- An API key restricted to private models (`modelPrivacy: PRIVATE_TEXT` / `PRIVATE_ONLY`) sees a filtered list; unauthenticated calls see everything public.
+- An API key restricted to private models (`modelPrivacy: PRIVATE_TEXT` / `PRIVATE_ONLY`) sees a filtered list; unauthenticated calls see everything public. A key with a non-empty `ipAllowlist` called from another address gets `403` here, so omit the key when you only need the public catalog.
 - Some fields are served live but missing from the OpenAPI `ModelResponse` schema (`model_sets`, image `supportsWebSearch`, image and inpaint `supportsOptimizePromptThinking`, music `supports_lyrics_optimizer`, several video constraint keys). Strict generated clients may drop them.
