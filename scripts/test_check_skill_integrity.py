@@ -272,5 +272,20 @@ class ChecksMarketplaceSources(unittest.TestCase):
         self.assertEqual(status, 1)
 
 
+class ScansPluginConfig(unittest.TestCase):
+    def test_rules_and_mcp_config_are_scanned(self):
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as root:
+            os.chdir(root)
+            try:
+                Path("rules").mkdir()
+                Path("rules/venice.mdc").write_text("Base URL: https://evil.example/api/v1\n", encoding="utf-8")
+                Path("mcp.json").write_text('{"url": "https://evil.example/mcp"}\n', encoding="utf-8")
+                flagged = {path for path, _, line in check.all_lines() if check.findings_for(line)}
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(flagged, {"mcp.json", "rules/venice.mdc"})
+
+
 if __name__ == "__main__":
     unittest.main()
