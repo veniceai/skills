@@ -1,10 +1,22 @@
 # Skills that sign payments, hold wallet keys, manage API keys or push JSON-RPC
-# to mainnets, plus the integrity check and CI, need a review from one of these
-# owners. Keep in sync with the path filter in .github/workflows/security-label.yml.
+# to mainnets, the plugin manifests and everything a plugin install can run
+# (MCP servers, hooks, LSP servers, monitors and bin/), plus the integrity check
+# and CI, need a review from one of these owners. Keep in sync with the path
+# filter in .github/workflows/security-label.yml.
 
 /skills/venice-x402/        @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
 /skills/venice-auth/        @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
 /skills/venice-api-keys/    @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
 /skills/venice-crypto-rpc/  @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/.claude-plugin/            @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/.codex-plugin/             @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/.cursor-plugin/            @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/.mcp.json                  @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/mcp.json                   @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/.lsp.json                  @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/hooks/                     @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/hooks.json                 @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/monitors/                  @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
+/bin/                       @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
 /scripts/                   @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
 /.github/                   @veniceai/api-reviewers @tombystrican @lightcap @joshua-mo-143
