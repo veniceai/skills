@@ -1,6 +1,7 @@
 ---
 name: venice-characters
 description: Discover and use Venice public characters (persona-driven system prompts with a suggested model). Covers GET /characters (search/filter/sort/paginate), /characters/{slug}, /characters/{slug}/reviews, the Character and Review schemas, Bearer-API-key-only auth, filter semantics (adult, pro, modelId), and how to apply a character via venice_parameters.character_slug in chat completions.
+license: MIT
 ---
 
 # Venice Characters

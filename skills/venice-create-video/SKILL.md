@@ -1,6 +1,7 @@
 ---
 name: venice-create-video
 description: End-to-end video creation workflow with Venice. Use when a user wants a finished clip - "make a 5 second product teaser", "animate this image", "turn this still into a loop". Covers choosing text-to-video vs image-to-video, reading a model's durations, aspect ratios, resolutions and audio support from the live catalog, quoting the price and confirming before spending, queuing, polling at the right interval, download_url results, cleanup with delete_media_on_completion, saving the MP4, and refunds. Uses the Venice MCP tools (venice_video_quote, venice_video_generate, venice_video_status, venice_list_models, venice_model_details) when available, or the /video/quote, /video/queue and /video/retrieve endpoints otherwise.
+license: MIT
 ---
 
 # Create videos with Venice

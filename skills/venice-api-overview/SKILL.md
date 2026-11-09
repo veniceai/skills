@@ -1,6 +1,7 @@
 ---
 name: venice-api-overview
 description: High-level map of the Venice AI API - base URL, which auth mode each endpoint accepts (API key, x402 wallet, or none), endpoint categories (including decisions, voice changer, and retired routes), response headers (rate limit, balance, deprecation, x402), pricing model, error shape, and versioning. Load this first when starting any Venice integration.
+license: MIT
 ---
 
 # Venice API Overview

@@ -1,6 +1,7 @@
 ---
 name: venice-audio-transcription
 description: Transcribe audio files to text via POST /audio/transcriptions. Covers supported models (Parakeet, Whisper, Wizper, Scribe, xAI STT), accepted containers (wav/flac/m4a/aac/mp4/mp3/ogg/webm), response formats (json/text only), per-model timestamps (word/segment/char), language hints, the 25 MB cap, and per-audio-second pricing. OpenAI-compatible multipart.
+license: MIT
 ---
 
 # Venice Transcription (`/audio/transcriptions`)

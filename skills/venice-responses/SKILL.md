@@ -1,6 +1,7 @@
 ---
 name: venice-responses
 description: Use Venice's Alpha POST /responses endpoint - an OpenAI-compatible, stateless Responses API with typed output blocks (reasoning, message, function_call, web_search_call). Covers request shape, input items, tools (function, web_search, x_search), reasoning controls, prompt_cache_retention, incomplete responses, streaming events, differences from /chat/completions, the supported venice_parameters subset, and E2EE behavior.
+license: MIT
 ---
 
 # Venice Responses API (Alpha)

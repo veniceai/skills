@@ -38,7 +38,7 @@ Supporting files (helper scripts, reference data) can live alongside `SKILL.md` 
 
 ## Review checklist
 
-- [ ] Frontmatter `name` + `description` present and concrete.
+- [ ] Frontmatter `name` + `description` present and concrete, plus `license: MIT`.
 - [ ] Endpoint table at the top.
 - [ ] At least one `curl` example.
 - [ ] Errors + gotchas section.

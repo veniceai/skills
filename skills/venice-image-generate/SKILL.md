@@ -1,6 +1,7 @@
 ---
 name: venice-image-generate
 description: Generate images with Venice. Covers POST /image/generate (Venice-native), POST /images/generations (OpenAI-compatible), GET /image/styles (style presets), request fields (prompt, width/height, aspect_ratio, resolution, quality, cfg_scale, steps, seed, variants, style_preset, style_references, enhance_prompt, safe_mode, hide_watermark, format, return_binary), per-model constraints from GET /models, response formats and headers.
+license: MIT
 ---
 
 # Venice Image Generation
