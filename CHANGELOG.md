@@ -4,6 +4,7 @@ Releases are tagged `vX.Y.Z`. Pin installs to a tag; see the README.
 
 ## v0.3.0
 
+- `scripts/check_skill_integrity.py` also scans `SETUP.md` and `link-skills`, which agents follow or run like a skill.
 - CODEOWNERS and the `security-review` label also cover the `link-skills` script and `SETUP.md`.
 - CODEOWNERS and the `security-review` label also cover the README, whose install commands people run as written.
 - Claude Code marketplace: `.claude-plugin/marketplace.json` lets Claude Code install the skills as the `venice` plugin with `/plugin marketplace add veniceai/skills`.
