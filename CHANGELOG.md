@@ -4,6 +4,7 @@ Releases are tagged `vX.Y.Z`. Pin installs to a tag; see the README.
 
 ## v0.3.0
 
+- `SETUP.md` walks an agent through installing the skills and the Venice MCP server in Claude Code, Codex, Cursor, OpenCode, Hermes or any MCP client, writing the config with a key placeholder for the user to fill in, so the key stays out of the chat, then making a $0.01 test image.
 - `./link-skills` links each skill from a clone into Claude Code, Codex, Cursor, OpenCode and Hermes, or into any folder with `--dir`, without Node.js. It's safe to run again.
 - The README opens with an Install section: the `skills` CLI, pinned to 1.7.6 and run with `--ignore-scripts`, then `gh skill install` and the Claude Code and Codex plugins.
 - `scripts/check_skill_integrity.py` also scans `SETUP.md` and `link-skills`, which agents follow or run like a skill.
