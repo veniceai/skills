@@ -113,7 +113,7 @@ Every generated image and every variant is billed, and so is every edit, upscale
 |---|---|---|
 | `400` | Unsupported `resolution` or field for this model, or an unreachable image URL | Re-read `venice_model_details`; make sure input URLs are public. |
 | `402` | Insufficient balance | Tell the user; don't retry. |
-| `422` | Content policy rejection on an edit. `/image/generate` returns a `200` with `x-venice-is-content-violation: true` instead. | Rephrase the prompt; don't retry it unchanged. |
+| `422` | Content policy rejection on an edit, multi-edit, or `/image/upscale`. `/image/generate` returns a `200` with `x-venice-is-content-violation: true` instead. | Rephrase the prompt / image; don't retry it unchanged. |
 | `429` | Rate limit | Wait and retry with backoff. |
 
 Full error handling is in [`venice-errors`](../venice-errors/SKILL.md).
