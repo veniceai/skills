@@ -4,6 +4,24 @@ Agent Skills for the [Venice API](https://docs.venice.ai). Skills are self-conta
 
 This repository is the canonical source of truth for Venice skills and is kept in sync with [`swagger.yaml`](https://docs.venice.ai). Use it with Cursor, Claude, Codex, Cline, or any other agent runtime that supports the Agent Skills format.
 
+## Install
+
+```bash
+npx -y --ignore-scripts skills@1.7.6 add veniceai/skills
+```
+
+This runs a pinned version of the [`skills` CLI](https://skills.sh), with npm's install scripts turned off. It asks which skills to install and which agents to install them into: Claude Code, Codex, Cursor, OpenCode, Hermes and many more. It needs Node.js 22.20 or later.
+
+Other ways to install:
+
+| How | Command |
+|---|---|
+| GitHub CLI | `gh skill install veniceai/skills` |
+| Claude Code plugin, which also adds the [Venice MCP server](https://github.com/veniceai/venice-mcp-server) | `claude plugin marketplace add veniceai/skills`, then `claude plugin install venice@venice` |
+| Codex plugin | `codex plugin marketplace add veniceai/skills`, then `codex plugin add venice@venice` |
+
+To copy or link the skills yourself, or to pin a release, see [Using these skills](#using-these-skills).
+
 ## What's in here
 
 ```

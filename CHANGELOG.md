@@ -4,6 +4,7 @@ Releases are tagged `vX.Y.Z`. Pin installs to a tag; see the README.
 
 ## v0.3.0
 
+- The README opens with an Install section: the `skills` CLI, pinned to 1.7.6 and run with `--ignore-scripts`, then `gh skill install` and the Claude Code and Codex plugins.
 - `scripts/check_skill_integrity.py` also scans `SETUP.md` and `link-skills`, which agents follow or run like a skill.
 - `scripts/check_skill_integrity.py` fails when `SETUP.md` or the README runs an npm package any way but `npx -y --ignore-scripts` at a recorded version. It records the `skills` CLI at 1.7.6, and `--registry` checks its hash too.
 - `scripts/check_skill_integrity.py` also fails when an `@veniceai/mcp-server` in `SETUP.md`, including the JSON and YAML config entries, isn't a recorded version after `-y --ignore-scripts`, or when an `args` line there is anything but an inline list of exactly `-y`, `--ignore-scripts` and a recorded server version.
