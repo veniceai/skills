@@ -72,13 +72,13 @@ This repo is also a Cursor plugin. Installing it adds all of these skills, plus:
 
 To install the plugin from a clone, copy the repo (a symlink won't load) into `~/.cursor/plugins/local/venice` and run **Developer: Reload Window**. Cursor Enterprise admins can turn local plugins off, in which case Cursor skips that folder.
 
-To use only the skills, clone or subtree the repo and point your agent skills path at `skills/`:
+To use only the skills, clone the repo inside `.cursor/skills/`, which Cursor searches for `SKILL.md` files in nested folders, or copy the skills you want there:
 
 ```bash
 # project-local, pinned to a release
-git clone --branch v0.2.0 git@github.com:veniceai/skills.git .cursor/skills-venice
-# or copy individual skills
-cp -r skills/venice-chat .cursor/skills/
+git clone --branch v0.2.0 https://github.com/veniceai/skills.git .cursor/skills/venice
+# or copy individual skills from a clone
+cp -r ~/src/venice-skills/skills/venice-chat .cursor/skills/
 ```
 
 ### Claude Code
