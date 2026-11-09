@@ -91,7 +91,7 @@ def in_repo(files):
     root = tempfile.TemporaryDirectory()
     for rel, content in files.items():
         Path(root.name, rel).parent.mkdir(parents=True, exist_ok=True)
-        Path(root.name, rel).write_text(json.dumps(content), encoding="utf-8")
+        Path(root.name, rel).write_text(content if isinstance(content, str) else json.dumps(content), encoding="utf-8")
     return root
 
 
@@ -325,6 +325,60 @@ class PinsInstallCommands(unittest.TestCase):
     def test_skills_and_readme_hosts_are_left_to_their_own_checks(self):
         self.assertEqual(check_all({"skills/venice-chat/SKILL.md": "npx skills add veniceai/skills"}), 0)
         self.assertEqual(check_all({"README.md": "Source: https://github.com/veniceai/skills"}), 0)
+
+
+class PinsTheGuidesMcpServer(unittest.TestCase):
+    FLAGGED = [
+        '      "args": ["-y", "--ignore-scripts", "@veniceai/mcp-server@latest"],',
+        '    args: ["@veniceai/mcp-server"]',
+        '    args: ["@veniceai/mcp-server@0.3.1"]',
+        '      "args": ["--ignore-scripts", "@veniceai/mcp-server@0.3.1"],',
+        "| Codex | `codex mcp add venice -- npx -y @veniceai/mcp-server@0.3.1` |",
+        '      "args": ["-y", "--ignore-scripts", "@veniceai/mcp-server@0.3.9"],',
+    ]
+    ALLOWED = [
+        '      "args": ["-y", "--ignore-scripts", "@veniceai/mcp-server@0.3.1"],',
+        '    args: ["-y", "--ignore-scripts", "@veniceai/mcp-server@0.3.1"]',
+        "| Codex | `codex mcp add venice --env 'VENICE_API_KEY=<VENICE_API_KEY>' -- npx -y --ignore-scripts @veniceai/mcp-server@0.3.1` |",
+        "2. Add the Venice MCP server: command npx, args -y --ignore-scripts @veniceai/mcp-server@0.3.1, env VENICE_API_KEY.",
+    ]
+
+    ARGS_FLAGGED = [
+        '      "args": ["-y", "--ignore-scripts", "@attacker/mcp-server@1.0.0"],',
+        '    args: ["-y", "--ignore-scripts", "venice-mcp-server"]',
+        '    args: ["-y", "--ignore-scripts", "skills@1.7.6"]',
+        '    args: ["-y", "--ignore-scripts", "@veniceai/mcp-server@0.3.1", "--evil"]',
+        '    args: ["-y", "--foreground-scripts", "@veniceai/mcp-server@0.3.1"]',
+        '      "args": [',
+        "    args:",
+    ]
+
+    def test_each_case_is_flagged(self):
+        for line in self.FLAGGED:
+            with self.subTest(line=line):
+                self.assertTrue(check.mcp_mention_findings(line), f"not flagged: {line}")
+
+    def test_each_case_is_clean(self):
+        for line in self.ALLOWED:
+            with self.subTest(line=line):
+                self.assertEqual(check.mcp_mention_findings(line), [])
+
+    def test_args_lines_naming_anything_else_are_flagged(self):
+        for line in self.ARGS_FLAGGED:
+            with self.subTest(line=line):
+                self.assertTrue(check.args_line_findings(line), f"not flagged: {line}")
+
+    def test_args_lines_with_the_pinned_server_are_clean(self):
+        for line in self.ALLOWED:
+            with self.subTest(line=line):
+                self.assertEqual(check.args_line_findings(line), [])
+
+    def test_only_the_setup_guide_is_checked(self):
+        self.assertEqual(check_all({"SETUP.md": "    see @veniceai/mcp-server@latest"}), 1)
+        self.assertEqual(check_all({"SETUP.md": self.ARGS_FLAGGED[0]}), 1)
+        self.assertEqual(check_all({"SETUP.md": self.ALLOWED[0]}), 0)
+        self.assertEqual(check_all({"README.md": self.ARGS_FLAGGED[0]}), 0)
+        self.assertEqual(check_all({"README.md": "the server (`@veniceai/mcp-server`, run with `npx --ignore-scripts`)"}), 0)
 
 
 class ChecksMarketplaceSources(unittest.TestCase):

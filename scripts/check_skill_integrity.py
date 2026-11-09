@@ -100,6 +100,15 @@ NPX_PREFIX = ["-y", "--ignore-scripts"]
 # command in them must be NPX_PREFIX plus a recorded package version.
 NPX_CHECKED_PATHS = ["SETUP.md", "README.md"]
 NPX_COMMAND = re.compile(r"\bnpx((?:[ \t]+[^\s`\"'|;&()]+)*)")
+# The guide's JSON and YAML entries put the server's args on their own line,
+# where no npx command precedes them, and an agent copies them into the
+# user's MCP config. Every mention there needs the pin and flags a plugin needs,
+# and every args line must be the exact list a plugin's server may take, written
+# inline so a line-by-line check can read it.
+MCP_PINNED_PATHS = ["SETUP.md"]
+MCP_SERVER_MENTION = re.compile(r"@veniceai/mcp-server(?:@[^\s\"'`,\])]*)?")
+ARGS_LINE = re.compile(r"""^\s*["']?args["']?\s*:(.*)$""")
+INLINE_LIST = re.compile(r"\[(.*)\],?")
 OTHER_RUNNERS = re.compile(r"\b(bunx|bun\s+x|pnpm\s+(?:dlx|add)|yarn\s+(?:dlx|add|global)|npm\s+(?:exec|x|i|install|add))\b")
 OPTIONAL_MCP_ENV = {"VENICE_DISABLE_NSFW": "1"}
 STDIO_MCP_FIELDS = {"type", "command", "args", "env"}
@@ -183,6 +192,30 @@ def pinned_package(spec: object) -> bool:
 def recorded_package(spec: str) -> bool:
     match = PACKAGE_SPEC.fullmatch(spec)
     return bool(match) and any(match.group(2) in packages.get(match.group(1), {}) for packages in (MCP_PACKAGES, CLI_PACKAGES))
+
+
+def has_flag(text: str, flag: str) -> bool:
+    return re.search(rf"(?:^|[\s\"'\[(]){re.escape(flag)}(?=$|[\s\"',\])])", text) is not None
+
+
+def mcp_mention_findings(line: str) -> list[str]:
+    found = []
+    for match in MCP_SERVER_MENTION.finditer(line):
+        before = line[:match.start()]
+        if not pinned_package(match.group(0)) or not all(has_flag(before, flag) for flag in NPX_PREFIX):
+            found.append(f"@veniceai/mcp-server must be a recorded version after -y --ignore-scripts on its line: {line.strip()[:80]}")
+    return found
+
+
+def args_line_findings(line: str) -> list[str]:
+    match = ARGS_LINE.match(line)
+    if not match:
+        return []
+    listed = INLINE_LIST.fullmatch(match.group(1).strip())
+    args = [item.strip().strip("\"'") for item in listed.group(1).split(",")] if listed else None
+    if args is None or len(args) != 3 or args[:2] != NPX_PREFIX or not pinned_package(args[2]):
+        return [f"args must be an inline list of exactly -y, --ignore-scripts and a recorded MCP server version: {line.strip()[:80]}"]
+    return []
 
 
 def npx_findings(line: str) -> list[str]:
@@ -355,7 +388,11 @@ def all_lines(paths: list[str] | None = None):
 
 def line_findings(path: str, line: str) -> list[str]:
     scanned = any(path == root or path.startswith(root + "/") for root in SCANNED_PATHS)
-    return (findings_for(line) if scanned else []) + (npx_findings(line) if path in NPX_CHECKED_PATHS else [])
+    return (
+        (findings_for(line) if scanned else [])
+        + (npx_findings(line) if path in NPX_CHECKED_PATHS else [])
+        + (mcp_mention_findings(line) + args_line_findings(line) if path in MCP_PINNED_PATHS else [])
+    )
 
 
 def main() -> int:
@@ -369,7 +406,7 @@ def main() -> int:
     if args.registry:
         problems = [(path, 1, finding) for path, finding in registry_findings()]
     else:
-        paths = SCANNED_PATHS + [path for path in NPX_CHECKED_PATHS if path not in SCANNED_PATHS]
+        paths = list(dict.fromkeys(SCANNED_PATHS + NPX_CHECKED_PATHS + MCP_PINNED_PATHS))
         lines = all_lines(paths) if args.all else added_lines(args.base, paths)
         problems = [
             (path, lineno, finding)
