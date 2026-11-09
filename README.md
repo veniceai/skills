@@ -19,6 +19,9 @@ Other ways to install:
 | GitHub CLI | `gh skill install veniceai/skills` |
 | Claude Code plugin, which also adds the [Venice MCP server](https://github.com/veniceai/venice-mcp-server) | `claude plugin marketplace add veniceai/skills`, then `claude plugin install venice@venice` |
 | Codex plugin | `codex plugin marketplace add veniceai/skills`, then `codex plugin add venice@venice` |
+| Linked install, no Node.js needed | `git clone https://github.com/veniceai/skills.git ~/src/venice-skills && ~/src/venice-skills/link-skills` |
+
+`link-skills` links each skill into every agent it finds among Claude Code, Codex, Cursor, OpenCode and Hermes. Pass `--agent <agent>` to choose, or `--dir <dir>` for any other agent. Run it again after a `git pull` to link new skills and remove links to deleted ones. It takes over any existing link with a skill's name, including one you pointed at another copy, and prints where that link pointed.
 
 To copy or link the skills yourself, or to pin a release, see [Using these skills](#using-these-skills).
 

@@ -4,6 +4,7 @@ Releases are tagged `vX.Y.Z`. Pin installs to a tag; see the README.
 
 ## v0.3.0
 
+- `./link-skills` links each skill from a clone into Claude Code, Codex, Cursor, OpenCode and Hermes, or into any folder with `--dir`, without Node.js. It's safe to run again.
 - The README opens with an Install section: the `skills` CLI, pinned to 1.7.6 and run with `--ignore-scripts`, then `gh skill install` and the Claude Code and Codex plugins.
 - `scripts/check_skill_integrity.py` also scans `SETUP.md` and `link-skills`, which agents follow or run like a skill.
 - `scripts/check_skill_integrity.py` fails when `SETUP.md` or the README runs an npm package any way but `npx -y --ignore-scripts` at a recorded version. It records the `skills` CLI at 1.7.6, and `--registry` checks its hash too.
