@@ -203,6 +203,12 @@ Some skills teach an agent to sign USDC payments, hold wallet keys, manage API k
 - **CODEOWNERS** requires a review from `@veniceai/api-reviewers`, `@tombystrican`, `@lightcap` or `@joshua-mo-143` for `venice-x402`, `venice-auth`, `venice-api-keys`, `venice-crypto-rpc`, the plugin manifests (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`), everything a plugin install can run (`mcp.json`, `.mcp.json`, `.lsp.json`, `hooks/`, `hooks.json`, `monitors/`, `bin/`), `scripts/` and `.github/`, and those PRs are labeled `security-review`.
 - **Releases** are tagged; see [Pin to a release](#pin-to-a-release) and the [changelog](./CHANGELOG.md).
 
+## Support and legal
+
+Report bugs and request features in [GitHub issues](https://github.com/veniceai/skills/issues). For account or billing help, email support@venice.ai.
+
+The skills and the Venice MCP server call the Venice API, so using them is covered by Venice's [terms of service](https://venice.ai/legal/tos) and [privacy policy](https://venice.ai/legal/privacy-policy).
+
 ## License
 
 MIT — see [`LICENSE`](./LICENSE). Use these skills however you like; a credit link back to <https://docs.venice.ai> is appreciated but not required.
