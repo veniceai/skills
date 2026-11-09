@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fail when skill content gains a host, wallet address, or shell pipe we have not approved,
-or a plugin config starts an MCP server that doesn't match an approved entry.
+a plugin config starts an MCP server that doesn't match an approved entry, or the
+install docs run an npm package that isn't pinned to a recorded version.
 
 Agents follow these files literally, and some of them sign USDC payments, so a
 changed host or recipient is the edit worth stopping. The allowlists below live
@@ -9,7 +10,7 @@ under scripts/, which CODEOWNERS routes to a required reviewer.
 Usage:
     python scripts/check_skill_integrity.py --base origin/main   # lines added since base
     python scripts/check_skill_integrity.py --all                # every line in the tree
-    python scripts/check_skill_integrity.py --registry           # recorded MCP package hashes vs npm
+    python scripts/check_skill_integrity.py --registry           # recorded npm package hashes vs npm
 
 Exit code 1 when anything is flagged. Stdlib only.
 """
@@ -87,7 +88,19 @@ MCP_PACKAGES = {
         "0.3.1": "sha512-v/hz7vg3H+ySwDu4WeigzDa0R2iuc++Yb18YfuEH1NU0pBQllMqn2dKW3n76d/3CQFN0tOi6GhjW2LBVrLzsHA==",
     },
 }
+# CLIs the install docs run with npx, recorded the same way. They stay out of
+# MCP_PACKAGES so a plugin config can't start one as an MCP server.
+CLI_PACKAGES = {
+    "skills": {
+        "1.7.6": "sha512-dAee29yRGin7ub6VHwmifLEfHrysGD41yq4RkY0gg7QQh0wyQKWfhiORGb/r6uNpKWc9A1GY8yowV07Lh+4rCg==",
+    },
+}
 NPX_PREFIX = ["-y", "--ignore-scripts"]
+# People and agents run the commands in these files as written, so every npx
+# command in them must be NPX_PREFIX plus a recorded package version.
+NPX_CHECKED_PATHS = ["SETUP.md", "README.md"]
+NPX_COMMAND = re.compile(r"\bnpx((?:[ \t]+[^\s`\"'|;&()]+)*)")
+OTHER_RUNNERS = re.compile(r"\b(bunx|bun\s+x|pnpm\s+(?:dlx|add)|yarn\s+(?:dlx|add|global)|npm\s+(?:exec|x|i|install|add))\b")
 OPTIONAL_MCP_ENV = {"VENICE_DISABLE_NSFW": "1"}
 STDIO_MCP_FIELDS = {"type", "command", "args", "env"}
 REMOTE_MCP_FIELDS = {"type", "url", "headers"}
@@ -165,6 +178,21 @@ def findings_for(line: str) -> list[str]:
 def pinned_package(spec: object) -> bool:
     match = PACKAGE_SPEC.fullmatch(spec) if isinstance(spec, str) else None
     return bool(match) and match.group(2) in MCP_PACKAGES.get(match.group(1), {})
+
+
+def recorded_package(spec: str) -> bool:
+    match = PACKAGE_SPEC.fullmatch(spec)
+    return bool(match) and any(match.group(2) in packages.get(match.group(1), {}) for packages in (MCP_PACKAGES, CLI_PACKAGES))
+
+
+def npx_findings(line: str) -> list[str]:
+    found = [f"run npm packages with pinned npx, not {match.group(1)}" for match in OTHER_RUNNERS.finditer(line)]
+    for match in NPX_COMMAND.finditer(line):
+        tokens = match.group(1).split()
+        package = next((index for index, token in enumerate(tokens) if not token.startswith("-")), None)
+        if package is not None and (tokens[:package] != NPX_PREFIX or not recorded_package(tokens[package])):
+            found.append(f"npx must be -y --ignore-scripts and a recorded package version, not: npx {' '.join(tokens[:package + 1])}")
+    return found
 
 
 def remote_mcp_findings(name: str, server: dict) -> list[str]:
@@ -283,7 +311,7 @@ def fetch_json(url: str) -> dict:
 
 def registry_findings(fetch=fetch_json) -> list[tuple[str, str]]:
     found = []
-    for name, versions in MCP_PACKAGES.items():
+    for name, versions in [*MCP_PACKAGES.items(), *CLI_PACKAGES.items()]:
         for version, recorded in versions.items():
             url = f"https://registry.npmjs.org/{quote(name, safe='@')}/{version}"
             try:
@@ -296,9 +324,9 @@ def registry_findings(fetch=fetch_json) -> list[tuple[str, str]]:
     return found
 
 
-def added_lines(base: str):
+def added_lines(base: str, paths: list[str] | None = None):
     diff = subprocess.run(
-        ["git", "diff", "--unified=0", "--no-color", f"{base}...HEAD", "--", *SCANNED_PATHS],
+        ["git", "diff", "--unified=0", "--no-color", f"{base}...HEAD", "--", *(paths or SCANNED_PATHS)],
         check=True, capture_output=True, text=True,
     ).stdout
     path, lineno = None, 0
@@ -312,8 +340,8 @@ def added_lines(base: str):
             lineno += 1
 
 
-def all_lines():
-    for root in SCANNED_PATHS:
+def all_lines(paths: list[str] | None = None):
+    for root in paths or SCANNED_PATHS:
         for file in [Path(root)] if Path(root).is_file() else sorted(Path(root).rglob("*")):
             if not file.is_file():
                 continue
@@ -325,23 +353,29 @@ def all_lines():
                 yield str(file), lineno, line
 
 
+def line_findings(path: str, line: str) -> list[str]:
+    scanned = any(path == root or path.startswith(root + "/") for root in SCANNED_PATHS)
+    return (findings_for(line) if scanned else []) + (npx_findings(line) if path in NPX_CHECKED_PATHS else [])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--base", help="git ref to diff against; only added lines are checked")
     mode.add_argument("--all", action="store_true", help="check every line in the scanned paths")
-    mode.add_argument("--registry", action="store_true", help="check each recorded MCP package hash against npm")
+    mode.add_argument("--registry", action="store_true", help="check each recorded npm package hash against npm")
     args = parser.parse_args()
 
     if args.registry:
         problems = [(path, 1, finding) for path, finding in registry_findings()]
     else:
-        lines = all_lines() if args.all else added_lines(args.base)
+        paths = SCANNED_PATHS + [path for path in NPX_CHECKED_PATHS if path not in SCANNED_PATHS]
+        lines = all_lines(paths) if args.all else added_lines(args.base, paths)
         problems = [
             (path, lineno, finding)
             for path, lineno, line in lines
             if path not in UNSCANNED
-            for finding in findings_for(line)
+            for finding in line_findings(path, line)
         ]
         problems += [(path, 1, finding) for path, finding in plugin_mcp_findings(Path("."))]
         problems += [(path, 1, finding) for path, finding in runnable_findings(Path("."))]
@@ -350,7 +384,7 @@ def main() -> int:
         print(f"::error file={path},line={lineno}::{finding}")
     if problems:
         print(
-            f"\n{len(problems)} finding(s). If a new host, address or MCP package is intended, add it to the "
+            f"\n{len(problems)} finding(s). If a new host, address or npm package is intended, add it to the "
             f"allowlist in {SELF} in the same PR so a code owner reviews it.",
             file=sys.stderr,
         )
