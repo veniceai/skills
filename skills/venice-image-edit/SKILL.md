@@ -185,7 +185,7 @@ curl https://api.venice.ai/api/v1/image/upscale \
 | `scale` | number, 2–4 | 2 | Documented as `2` or `4`. Anything below 2 (including the old `scale: 1`) is a `400`. If `width × height × scale²` would exceed 16,777,216 px, the scale is reduced automatically. If no real upscale fits, you get a `400`. |
 | `creativity` | number | 0.01 | How much detail and texture the upscaler adds. Clamped to **0–0.02**, so `0.5` behaves as `0.02`. `null` is coerced to `0`. |
 
-Response: `image/png` bytes. Every successful upscale is charged.
+Response: `image/png` bytes. Every successful upscale is charged. A content-policy refusal is `422` `ContentViolationError` (`error` required; optional `suggested_prompt`) — not a `500`.
 
 Billing (from `/models` `pricing.upscale`): **$0.02** when the effective scale is ≤ 2, **$0.08** when it is above 2. For example, `scale: 3` bills at the 4× rate.
 
@@ -229,7 +229,7 @@ curl https://api.venice.ai/api/v1/image/background-remove \
 | `404` | Edit / multi-edit: the provider couldn't find or fetch the input media (the body carries the provider's message). |
 | `413` | Multipart file over 25 MB, or request body too large. |
 | `415` | `/image/multi-edit` only, when the body is empty. A wrong `Content-Type` on any route is a `400` (`"'Content-Type' must be 'application/json'"`) — send JSON or multipart. |
-| `422` | Content-policy violation on edit / multi-edit (`{"error":"Your prompt violates the content policy of Venice.ai or the model provider"}`, no `code` field), or an image exceeds a pixel limit during processing (e.g. an `/image/edit` input over 8K). |
+| `422` | Content-policy violation on edit / multi-edit (`{"error":"Your prompt violates the content policy of Venice.ai or the model provider"}`, no `code` field), on `/image/upscale` (`ContentViolationError`: `error` plus optional `suggested_prompt`; spec: "The image was refused by content moderation."), or an image exceeds a pixel limit during processing (e.g. an `/image/edit` input over 8K). |
 | `429` | Rate limited, or the upstream provider is overloaded. |
 | `500` | Edit / upscale / background removal failed. |
 | `503` | Model at capacity — retry with jitter. |

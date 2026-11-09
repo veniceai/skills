@@ -72,7 +72,7 @@ FastAPI-style validation errors (e.g. from the TypeSafe provider behind `POST /d
 }
 ```
 
-Returned by chat, responses, image edit and multi-edit, and audio generation. `/image/generate` does not use it (a blocked image comes back as a `200` with `x-venice-is-content-violation: true`), and video content-policy rejections arrive on `/video/retrieve` rather than on queue. `suggested_prompt` is only emitted by `/audio/queue` and `/audio/retrieve`; when present, retry once with it if the user consents. Other `422`s include `"Your input was blocked by content moderation."` and media-validation failures (image too large, bad aspect ratio, audio/video duration out of range, ASR unable to process the audio).
+Returned by chat, responses, image edit and multi-edit, `/image/upscale`, and audio generation. `/image/generate` does not use it (a blocked image comes back as a `200` with `x-venice-is-content-violation: true`), and video content-policy rejections arrive on `/video/retrieve` rather than on queue. `suggested_prompt` is in the schema for audio queue/retrieve and for `/image/upscale`; when present, retry once with it if the user consents. Other `422`s include `"Your input was blocked by content moderation."` and media-validation failures (image too large, bad aspect ratio, audio/video duration out of range, ASR unable to process the audio).
 
 ### 6. `ProviderContentPolicyError` - `422` on `/video/retrieve`
 
