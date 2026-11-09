@@ -103,7 +103,7 @@ The plugin also starts the [Venice MCP server](https://github.com/veniceai/venic
 
 ### Claude / Codex / OpenCode / Hermes / other runtimes
 
-The `SKILL.md` format is a shared spec — drop the `skills/` folder (or any subset) into whichever path your runtime watches:
+The `SKILL.md` format is a shared spec — copy or link each skill folder (or any subset) into whichever path your runtime watches, so every skill sits one folder down at `<path>/<skill>/SKILL.md`:
 
 | Runtime | Project-local | Global |
 |---|---|---|
@@ -121,11 +121,17 @@ One-liner install for most setups:
 # clone once, pinned to a release
 git clone --branch v0.2.0 https://github.com/veniceai/skills.git ~/src/venice-skills
 
-# symlink into every runtime you use
-ln -s ~/src/venice-skills/skills ~/.claude/skills/venice
-ln -s ~/src/venice-skills/skills ~/.codex/skills/venice
-ln -s ~/src/venice-skills/skills ~/.config/opencode/skills/venice
-ln -s ~/src/venice-skills/skills ~/.hermes/skills/venice
+# link each skill into every runtime you use; safe to run again after a git pull
+for dir in ~/.claude/skills ~/.codex/skills ~/.config/opencode/skills ~/.hermes/skills; do
+  mkdir -p "$dir"
+  for skill in ~/src/venice-skills/skills/venice-*; do ln -sfn "$skill" "$dir/${skill##*/}"; done
+done
+```
+
+If you followed this README's earlier instructions, which linked the whole `skills/` folder as `venice`, remove those links so no agent sees each skill twice:
+
+```bash
+rm -f ~/.claude/skills/venice ~/.codex/skills/venice ~/.config/opencode/skills/venice ~/.hermes/skills/venice
 ```
 
 ### Pin to a release

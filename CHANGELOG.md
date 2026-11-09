@@ -9,6 +9,7 @@ Releases are tagged `vX.Y.Z`. Pin installs to a tag; see the README.
 - `scripts/check_skill_integrity.py` requires every plugin MCP server to match an approved entry field for field: exactly `npx -y --ignore-scripts` with an allowlisted package at a version recorded with its npm `sha512`, an `env` of exactly the plugin's API key setting, or an `https` URL on an allowlisted host. CI checks the recorded hashes against npm. The script also rejects plugin hooks, LSP servers, monitors and `bin/`, and marketplace entries that install from anywhere but this repository.
 - CODEOWNERS and the `security-review` label cover the plugin manifests and everything a plugin install can run.
 - The skill template is now `template/SKILL.template.md`, so `npx skills`, skills.sh and `gh skill` no longer offer it as a skill called `my-venice-skill`.
+- The README's clone-and-link install links each skill folder instead of the whole `skills/` folder, which Claude Code didn't load because it only looks one folder down. It's safe to run again after a `git pull`, and the README says how to remove the old `venice` links.
 
 ## v0.2.0
 
