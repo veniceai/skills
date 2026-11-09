@@ -154,7 +154,7 @@ Then symlink or copy the subsets you want into your agent's skill path.
 
 ## Authoring a new skill
 
-1. Copy `template/` to `skills/<your-skill-name>/`.
+1. Copy `template/SKILL.template.md` to `skills/<your-skill-name>/SKILL.md`.
 2. Fill in the frontmatter and body. Keep the `description` concrete — it's what an agent uses to decide when to load the skill.
 3. Link related skills at the bottom of the `SKILL.md` for cross-navigation.
 4. Open a PR.
