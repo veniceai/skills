@@ -15,6 +15,6 @@ This repo is the **authoritative Venice API reference**, kept in sync with the V
 
 ## Authoring
 
-New skill? Copy `template/` to `skills/<name>/` and follow `CONTRIBUTING.md`.
+New skill? Copy `template/SKILL.template.md` to `skills/<name>/SKILL.md` and follow `CONTRIBUTING.md`.
 
 > Source of truth: the Venice OpenAPI spec + public docs at https://docs.venice.ai. For the broader product/surface picture (every endpoint mapped to user actions), see the sibling `venice-kb/` repo.

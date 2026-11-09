@@ -1,6 +1,7 @@
 ---
 name: venice-api-keys
 description: Manage Venice API keys. Covers GET/POST/PATCH/DELETE /api_keys, GET /api_keys/{id}, GET /api_keys/rate_limits, GET /api_keys/rate_limits/log, the two-step /api_keys/generate_web3_key wallet flow, INFERENCE vs ADMIN key types, per-key consumption limits (USD / DIEM) with EPOCH / MONTH / LIFETIME reset windows, per-key modelPrivacy (ALL / PRIVATE_TEXT / PRIVATE_ONLY), and per-key ipAllowlist (globally reachable IPv4/IPv6 addresses and CIDR subnets; empty list allows any IP).
+license: MIT
 ---
 
 # Venice API Keys

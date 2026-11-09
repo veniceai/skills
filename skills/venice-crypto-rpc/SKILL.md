@@ -1,6 +1,7 @@
 ---
 name: venice-crypto-rpc
 description: Use Venice as a pay-per-call JSON-RPC proxy to 27 EVM, Starknet, and Solana networks. Covers the public GET /crypto/rpc/networks, POST /crypto/rpc/{network}, chain families and their explicit per-family method allowlists, the 1×/2×/4× method-tier pricing model (~$7e-7 per credit), the per-minute rate limit and per-user request serialization, idempotency keys for safe retries, single vs batch (≤100) requests, and the unsupported stateful/WebSocket methods (eth_subscribe, eth_newFilter, *Subscribe, etc.).
+license: MIT
 ---
 
 # Venice Crypto RPC (JSON-RPC proxy)

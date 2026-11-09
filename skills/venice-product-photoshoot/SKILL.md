@@ -1,6 +1,7 @@
 ---
 name: venice-product-photoshoot
 description: Product photography workflow with Venice. Use when a user has a product (a photo of it, or a clear description) and wants brand-quality shots - studio packshots on white, lifestyle scenes, flat lays, hero banners, seasonal campaigns, transparent cutouts, and sizes for marketplaces, social and web. Covers keeping the product faithful while changing the scene, edit vs multi-edit vs generate, aspect ratios per channel, upscaling final picks, and saving files. Uses venice_image_edit, venice_image_multi_edit, venice_image_remove_bg, venice_image_upscale and venice_image_generate from the Venice MCP server, or POST /image/edit, /image/multi-edit, /image/background-remove and /image/upscale.
+license: MIT
 ---
 
 # Product photoshoot with Venice

@@ -72,13 +72,13 @@ This repo is also a Cursor plugin. Installing it adds all of these skills, plus:
 
 To install the plugin from a clone, copy the repo (a symlink won't load) into `~/.cursor/plugins/local/venice` and run **Developer: Reload Window**. Cursor Enterprise admins can turn local plugins off, in which case Cursor skips that folder.
 
-To use only the skills, clone or subtree the repo and point your agent skills path at `skills/`:
+To use only the skills, clone the repo inside `.cursor/skills/`, which Cursor searches for `SKILL.md` files in nested folders, or copy the skills you want there:
 
 ```bash
 # project-local, pinned to a release
-git clone --branch v0.2.0 git@github.com:veniceai/skills.git .cursor/skills-venice
-# or copy individual skills
-cp -r skills/venice-chat .cursor/skills/
+git clone --branch v0.2.0 https://github.com/veniceai/skills.git .cursor/skills/venice
+# or copy individual skills from a clone
+cp -r ~/src/venice-skills/skills/venice-chat .cursor/skills/
 ```
 
 ### Claude Code
@@ -103,12 +103,12 @@ The plugin also starts the [Venice MCP server](https://github.com/veniceai/venic
 
 ### Claude / Codex / OpenCode / Hermes / other runtimes
 
-The `SKILL.md` format is a shared spec — drop the `skills/` folder (or any subset) into whichever path your runtime watches:
+The `SKILL.md` format is a shared spec — copy or link each skill folder (or any subset) into whichever path your runtime watches, so every skill sits one folder down at `<path>/<skill>/SKILL.md`:
 
 | Runtime | Project-local | Global |
 |---|---|---|
 | Claude Code | `.claude/skills/` | `~/.claude/skills/` |
-| Codex | `.codex/skills/` | `$CODEX_HOME/skills/` (default `~/.codex/skills/`) |
+| Codex | `.agents/skills/` | `~/.agents/skills/` (Codex still reads the deprecated `~/.codex/skills/`) |
 | OpenCode | `.opencode/skills/` (also reads `.claude/skills/` + `.agents/skills/`) | `~/.config/opencode/skills/` |
 | Hermes Agent (Nous Research) | `$HERMES_OPTIONAL_SKILLS_DIR` | `~/.hermes/skills/` |
 | Cursor | `.cursor/skills/` | `~/.cursor/skills/` |
@@ -121,11 +121,17 @@ One-liner install for most setups:
 # clone once, pinned to a release
 git clone --branch v0.2.0 https://github.com/veniceai/skills.git ~/src/venice-skills
 
-# symlink into every runtime you use
-ln -s ~/src/venice-skills/skills ~/.claude/skills/venice
-ln -s ~/src/venice-skills/skills ~/.codex/skills/venice
-ln -s ~/src/venice-skills/skills ~/.config/opencode/skills/venice
-ln -s ~/src/venice-skills/skills ~/.hermes/skills/venice
+# link each skill into every runtime you use; safe to run again after a git pull
+for dir in ~/.claude/skills ~/.agents/skills ~/.config/opencode/skills ~/.hermes/skills; do
+  mkdir -p "$dir"
+  for skill in ~/src/venice-skills/skills/venice-*; do ln -sfn "$skill" "$dir/${skill##*/}"; done
+done
+```
+
+If you followed this README's earlier instructions, which linked the whole `skills/` folder as `venice`, remove those links so no agent sees each skill twice:
+
+```bash
+rm -f ~/.claude/skills/venice ~/.codex/skills/venice ~/.config/opencode/skills/venice ~/.hermes/skills/venice
 ```
 
 ### Pin to a release
@@ -154,7 +160,7 @@ Then symlink or copy the subsets you want into your agent's skill path.
 
 ## Authoring a new skill
 
-1. Copy `template/` to `skills/<your-skill-name>/`.
+1. Copy `template/SKILL.template.md` to `skills/<your-skill-name>/SKILL.md`.
 2. Fill in the frontmatter and body. Keep the `description` concrete — it's what an agent uses to decide when to load the skill.
 3. Link related skills at the bottom of the `SKILL.md` for cross-navigation.
 4. Open a PR.

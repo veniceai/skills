@@ -8,6 +8,11 @@ Releases are tagged `vX.Y.Z`. Pin installs to a tag; see the README.
 - The Claude Code plugin starts the Venice MCP server (`@veniceai/mcp-server`, launched with `npx --ignore-scripts` at an exact version). Claude Code asks for a Venice API key when the plugin is enabled and keeps it in the system credential store.
 - `scripts/check_skill_integrity.py` requires every plugin MCP server to match an approved entry field for field: exactly `npx -y --ignore-scripts` with an allowlisted package at a version recorded with its npm `sha512`, an `env` of exactly the plugin's API key setting, or an `https` URL on an allowlisted host. CI checks the recorded hashes against npm. The script also rejects plugin hooks, LSP servers, monitors and `bin/`, and marketplace entries that install from anywhere but this repository.
 - CODEOWNERS and the `security-review` label cover the plugin manifests and everything a plugin install can run.
+- The skill template is now `template/SKILL.template.md`, so `npx skills`, skills.sh and `gh skill` no longer offer it as a skill called `my-venice-skill`.
+- The README's clone-and-link install links each skill folder instead of the whole `skills/` folder, which Claude Code didn't load because it only looks one folder down. It's safe to run again after a `git pull`, and the README says how to remove the old `venice` links.
+- The README's Cursor skills-only install clones into `.cursor/skills/venice`, which Cursor searches, instead of `.cursor/skills-venice`, which it doesn't.
+- The README points Codex at `~/.agents/skills`, its current personal skills folder, instead of the deprecated `~/.codex/skills`.
+- Every skill declares `license: MIT` in its frontmatter, the field `gh skill publish` recommends.
 
 ## v0.2.0
 

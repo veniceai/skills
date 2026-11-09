@@ -1,6 +1,7 @@
 ---
 name: venice-image-edit
 description: Transform existing images with Venice. Covers POST /image/edit (prompt-driven single-image edit), /image/multi-edit (compose several images, per-model input cap, quality tiers), /image/upscale (2x–4x upscale with creativity), and /image/background-remove (transparent PNG cutout). Input formats (base64, data URI, URL, multipart), per-model constraints from GET /models?type=inpaint, response headers, and errors.
+license: MIT
 ---
 
 # Venice Image Editing

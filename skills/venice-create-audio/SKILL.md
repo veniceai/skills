@@ -1,6 +1,7 @@
 ---
 name: venice-create-audio
 description: End-to-end audio creation workflow with Venice. Use when a user wants finished audio - "write and produce a jingle", "make a 30 second lo-fi loop", "add a voiceover", "I need a whoosh sound effect". Covers choosing between a song with lyrics, an instrumental, a sound effect, a seamless loop and spoken narration, reading each music model's lyrics, duration and loop support from the live catalog, quoting before queuing, polling, cleanup, picking a TTS voice, and saving files. Uses the Venice MCP tools (venice_audio_quote, venice_music_generate, venice_music_status, venice_tts, venice_voice_clone, venice_list_models, venice_model_details) when available, or /audio/quote, /audio/queue, /audio/retrieve and /audio/speech otherwise.
+license: MIT
 ---
 
 # Create audio with Venice

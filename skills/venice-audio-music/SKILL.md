@@ -1,6 +1,7 @@
 ---
 name: venice-audio-music
 description: Async music, sound-effect and long-form voice generation via Venice. Covers the /audio/quote + /audio/queue + /audio/retrieve + /audio/complete lifecycle, lyrics vs instrumental and the lyrics optimizer, duration options, seamless loop (ElevenLabs sound effects), voice selection incl. custom ElevenLabs Voice IDs, language, speed, model capability probing via /models?type=music, pricing shapes, refunds, and polling.
+license: MIT
 ---
 
 # Venice Music / Async Audio

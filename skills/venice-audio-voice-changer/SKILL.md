@@ -1,6 +1,7 @@
 ---
 name: venice-audio-voice-changer
 description: Async speech-to-speech voice conversion via Venice — re-record a source recording in a different voice while keeping delivery and timing. Covers POST /audio/voice-changer/quote (unauthenticated), /queue (multipart file or JSON audio_url), /retrieve and /complete, how to discover voice-changer models (model_spec.voice_changer on /models?type=music), accepted formats, the source-length cap, whole-minute billing, refunds, and what each endpoint refuses. Note that no voice-changer model is currently open to regular API keys.
+license: MIT
 ---
 
 # Venice Voice Changer (`/audio/voice-changer/*`)
