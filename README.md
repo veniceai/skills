@@ -108,7 +108,7 @@ The `SKILL.md` format is a shared spec — copy or link each skill folder (or an
 | Runtime | Project-local | Global |
 |---|---|---|
 | Claude Code | `.claude/skills/` | `~/.claude/skills/` |
-| Codex | `.codex/skills/` | `$CODEX_HOME/skills/` (default `~/.codex/skills/`) |
+| Codex | `.agents/skills/` | `~/.agents/skills/` (Codex still reads the deprecated `~/.codex/skills/`) |
 | OpenCode | `.opencode/skills/` (also reads `.claude/skills/` + `.agents/skills/`) | `~/.config/opencode/skills/` |
 | Hermes Agent (Nous Research) | `$HERMES_OPTIONAL_SKILLS_DIR` | `~/.hermes/skills/` |
 | Cursor | `.cursor/skills/` | `~/.cursor/skills/` |
@@ -122,7 +122,7 @@ One-liner install for most setups:
 git clone --branch v0.2.0 https://github.com/veniceai/skills.git ~/src/venice-skills
 
 # link each skill into every runtime you use; safe to run again after a git pull
-for dir in ~/.claude/skills ~/.codex/skills ~/.config/opencode/skills ~/.hermes/skills; do
+for dir in ~/.claude/skills ~/.agents/skills ~/.config/opencode/skills ~/.hermes/skills; do
   mkdir -p "$dir"
   for skill in ~/src/venice-skills/skills/venice-*; do ln -sfn "$skill" "$dir/${skill##*/}"; done
 done

@@ -11,6 +11,7 @@ Releases are tagged `vX.Y.Z`. Pin installs to a tag; see the README.
 - The skill template is now `template/SKILL.template.md`, so `npx skills`, skills.sh and `gh skill` no longer offer it as a skill called `my-venice-skill`.
 - The README's clone-and-link install links each skill folder instead of the whole `skills/` folder, which Claude Code didn't load because it only looks one folder down. It's safe to run again after a `git pull`, and the README says how to remove the old `venice` links.
 - The README's Cursor skills-only install clones into `.cursor/skills/venice`, which Cursor searches, instead of `.cursor/skills-venice`, which it doesn't.
+- The README points Codex at `~/.agents/skills`, its current personal skills folder, instead of the deprecated `~/.codex/skills`.
 
 ## v0.2.0
 
