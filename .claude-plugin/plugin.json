@@ -33,7 +33,7 @@
       "args": [
         "-y",
         "--ignore-scripts",
-        "@veniceai/mcp-server@0.3.1"
+        "@veniceai/mcp-server@0.3.2"
       ],
       "env": {
         "VENICE_API_KEY": "${user_config.venice_api_key}"
