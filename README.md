@@ -25,6 +25,10 @@ Other ways to install:
 
 To copy or link the skills yourself, or to pin a release, see [Using these skills](#using-these-skills).
 
+### Set up with your agent
+
+To have your agent install the skills and the Venice MCP server itself, so it can make images, video, music and speech for you, paste the message at the top of [`SETUP.md`](./SETUP.md) into it. The rest of that file has the exact steps the agent follows in Claude Code, Codex, Cursor, OpenCode and Hermes.
+
 ## What's in here
 
 ```

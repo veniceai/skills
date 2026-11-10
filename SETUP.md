@@ -1,5 +1,16 @@
 # Set up Venice in your agent
 
+To set up Venice, paste this message into your agent. Everything after it is for the agent.
+
+```text
+Set up Venice AI for me so I can make images, video, music and speech from here.
+1. Install the Venice skills for all my projects: npx -y --ignore-scripts skills@1.7.6 add veniceai/skills -g -y -a <your agent: claude-code, codex, cursor, opencode or hermes-agent>
+2. Add the Venice MCP server to your user-level MCP config, not a project file: command npx, args -y --ignore-scripts @veniceai/mcp-server@0.3.1, env VENICE_API_KEY set to the placeholder <VENICE_API_KEY>.
+3. Tell me which file to put my Venice INFERENCE key in, from https://venice.ai/settings/api, ideally with a spend limit, and I'll replace the placeholder myself. Only ask me to paste the key here if I'd rather; then write it into that file and nowhere else. Never print it or commit it.
+4. Once I've added the key, and after a restart if the Venice tools aren't loaded, make one test image with venice_image_generate and model z-image-turbo ($0.01), and show it to me.
+For the exact steps in your agent, read SETUP.md in the veniceai/skills repository on GitHub.
+```
+
 You are an AI agent, and the user asked you to set up Venice AI. Follow these steps in order. Afterwards the user can make images, video, music and speech from the chat, and you have the Venice skills, which tell you how to use the Venice API well.
 
 ## Rules
