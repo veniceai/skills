@@ -4,6 +4,15 @@ Releases are tagged `vX.Y.Z`. Pin installs to a tag; see the README.
 
 ## v0.3.0
 
+- `SETUP.md` opens with a message to paste into an agent, which then installs the skills and the Venice MCP server, has the user put their key in the config file, and makes a test image. The README points to it.
+- `SETUP.md` walks an agent through installing the skills and the Venice MCP server in Claude Code, Codex, Cursor, OpenCode, Hermes or any MCP client, writing the config with a key placeholder for the user to fill in, so the key stays out of the chat, then making a $0.01 test image.
+- `./link-skills` links each skill from a clone into Claude Code, Codex, Cursor, OpenCode and Hermes, or into any folder with `--dir`, without Node.js. It's safe to run again.
+- The README opens with an Install section: the `skills` CLI, pinned to 1.7.6 and run with `--ignore-scripts`, then `gh skill install` and the Claude Code and Codex plugins.
+- `scripts/check_skill_integrity.py` also scans `SETUP.md` and `link-skills`, which agents follow or run like a skill.
+- `scripts/check_skill_integrity.py` fails when `SETUP.md` or the README runs an npm package any way but `npx -y --ignore-scripts` at a recorded version. It records the `skills` CLI at 1.7.6, and `--registry` checks its hash too.
+- `scripts/check_skill_integrity.py` also fails when an `@veniceai/mcp-server` in `SETUP.md`, including the JSON and YAML config entries, isn't a recorded version after `-y --ignore-scripts`, or when an `args` line there is anything but an inline list of exactly `-y`, `--ignore-scripts` and a recorded server version.
+- CODEOWNERS and the `security-review` label also cover the `link-skills` script and `SETUP.md`.
+- CODEOWNERS and the `security-review` label also cover the README, whose install commands people run as written.
 - Claude Code marketplace: `.claude-plugin/marketplace.json` lets Claude Code install the skills as the `venice` plugin with `/plugin marketplace add veniceai/skills`.
 - The Claude Code plugin starts the Venice MCP server (`@veniceai/mcp-server`, launched with `npx --ignore-scripts` at an exact version). Claude Code asks for a Venice API key when the plugin is enabled and keeps it in the system credential store.
 - `scripts/check_skill_integrity.py` requires every plugin MCP server to match an approved entry field for field: exactly `npx -y --ignore-scripts` with an allowlisted package at a version recorded with its npm `sha512`, an `env` of exactly the plugin's API key setting, or an `https` URL on an allowlisted host. CI checks the recorded hashes against npm. The script also rejects plugin hooks, LSP servers, monitors and `bin/`, and marketplace entries that install from anywhere but this repository.

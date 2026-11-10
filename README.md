@@ -4,6 +4,31 @@ Agent Skills for the [Venice API](https://docs.venice.ai). Skills are self-conta
 
 This repository is the canonical source of truth for Venice skills and is kept in sync with [`swagger.yaml`](https://docs.venice.ai). Use it with Cursor, Claude, Codex, Cline, or any other agent runtime that supports the Agent Skills format.
 
+## Install
+
+```bash
+npx -y --ignore-scripts skills@1.7.6 add veniceai/skills
+```
+
+This runs a pinned version of the [`skills` CLI](https://skills.sh), with npm's install scripts turned off. It asks which skills to install and which agents to install them into: Claude Code, Codex, Cursor, OpenCode, Hermes and many more. It needs Node.js 22.20 or later.
+
+Other ways to install:
+
+| How | Command |
+|---|---|
+| GitHub CLI | `gh skill install veniceai/skills` |
+| Claude Code plugin, which also adds the [Venice MCP server](https://github.com/veniceai/venice-mcp-server) | `claude plugin marketplace add veniceai/skills`, then `claude plugin install venice@venice` |
+| Codex plugin | `codex plugin marketplace add veniceai/skills`, then `codex plugin add venice@venice` |
+| Linked install, no Node.js needed | `git clone https://github.com/veniceai/skills.git ~/src/venice-skills && ~/src/venice-skills/link-skills` |
+
+`link-skills` links each skill into every agent it finds among Claude Code, Codex, Cursor, OpenCode and Hermes. Pass `--agent <agent>` to choose, or `--dir <dir>` for any other agent. Run it again after a `git pull` to link new skills and remove links to deleted ones. It takes over any existing link with a skill's name, including one you pointed at another copy, and prints where that link pointed.
+
+To copy or link the skills yourself, or to pin a release, see [Using these skills](#using-these-skills).
+
+### Set up with your agent
+
+To have your agent install the skills and the Venice MCP server itself, so it can make images, video, music and speech for you, paste the message at the top of [`SETUP.md`](./SETUP.md) into it. The rest of that file has the exact steps the agent follows in Claude Code, Codex, Cursor, OpenCode and Hermes.
+
 ## What's in here
 
 ```
@@ -196,11 +221,12 @@ CI runs this nightly; any drift is filed as an issue with the `sync` label.
 
 Some skills teach an agent to sign USDC payments, hold wallet keys, manage API keys and send JSON-RPC to mainnets, so every change is gated before it can reach an install:
 
-- **`scripts/check_skill_integrity.py`** runs on every PR and fails if lines added under `skills/`, `scripts/`, `template/`, `rules/`, `AGENTS.md`, `skills.json` or `mcp.json` introduce a URL host outside its allowlist (URLs are parsed, and credentials, percent-encoding, backslashes, missing slashes and templated hosts fail closed), a scheme-relative URL, a scheme-less host followed by a path in a `curl` / `wget` command, a wallet address other than the known USDC contracts and Solana mainnet id, a `0x` + 64-hex or long base58 string that could be a private key, or `curl` / `wget` piped into a shell or interpreter. Run it locally with `python scripts/check_skill_integrity.py --base origin/main`. Extending an allowlist means editing that script, which needs a code-owner review.
+- **`scripts/check_skill_integrity.py`** runs on every PR and fails if lines added under `skills/`, `scripts/`, `template/`, `rules/`, `AGENTS.md`, `skills.json`, `mcp.json`, `SETUP.md` or `link-skills` introduce a URL host outside its allowlist (URLs are parsed, and credentials, percent-encoding, backslashes, missing slashes and templated hosts fail closed), a scheme-relative URL, a scheme-less host followed by a path in a `curl` / `wget` command, a wallet address other than the known USDC contracts and Solana mainnet id, a `0x` + 64-hex or long base58 string that could be a private key, or `curl` / `wget` piped into a shell or interpreter. Run it locally with `python scripts/check_skill_integrity.py --base origin/main`. Extending an allowlist means editing that script, which needs a code-owner review.
 - **Plugin MCP servers**: the same script fails unless every MCP server in `.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `mcp.json`, `.mcp.json` or a marketplace entry matches an approved entry field for field. A local server must run `npx -y --ignore-scripts` with an allowlisted package at a version recorded with its npm `sha512` and nothing after it, take an `env` of exactly `VENICE_API_KEY` from that plugin's key setting (optionally `VENICE_DISABLE_NSFW=1`), and set no other fields. A remote server may set only `type`, `url` and `headers`, with an `https` URL on an allowlisted host. That rules out `NODE_OPTIONS`, base-URL overrides, extra arguments and `headersHelper` commands. CI also confirms that npm still serves the recorded `sha512` for each pinned version (`--registry`), so a changed tarball fails closed.
+- **Install commands**: people and agents run the commands in `SETUP.md` and this README as written, so the same script fails if a line added to either one runs an npm package any way but `npx -y --ignore-scripts` with a version recorded with its npm `sha512`, or with another package runner. The recorded versions are the MCP server's and the `skills` CLI's, and `--registry` checks both. In `SETUP.md`, every `@veniceai/mcp-server`, including the JSON and YAML config entries, must also be a recorded version that follows `-y --ignore-scripts` on its line, and every `args` line must be an inline list of exactly `-y`, `--ignore-scripts` and a recorded server version, so an entry can't name another package.
 - **Plugin hooks and executables**: Claude Code passes every plugin setting, the API key included, to plugin hooks, so the same script fails if `hooks/`, `hooks.json`, `.lsp.json`, `monitors/` or `bin/` exists, or if a plugin manifest or marketplace entry declares `hooks`, `lspServers` or `monitors`. The plugins ship none of them.
 - **Marketplace sources**: every entry in `.claude-plugin/marketplace.json` or `.cursor-plugin/marketplace.json` must install from this repository (`./`), so a marketplace edit can't point `venice@venice` at code from somewhere else.
-- **CODEOWNERS** requires a review from `@veniceai/api-reviewers`, `@tombystrican`, `@lightcap` or `@joshua-mo-143` for `venice-x402`, `venice-auth`, `venice-api-keys`, `venice-crypto-rpc`, the plugin manifests (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`), everything a plugin install can run (`mcp.json`, `.mcp.json`, `.lsp.json`, `hooks/`, `hooks.json`, `monitors/`, `bin/`), `scripts/` and `.github/`, and those PRs are labeled `security-review`.
+- **CODEOWNERS** requires a review from `@veniceai/api-reviewers`, `@tombystrican`, `@lightcap` or `@joshua-mo-143` for `venice-x402`, `venice-auth`, `venice-api-keys`, `venice-crypto-rpc`, the plugin manifests (`.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`), everything a plugin install can run (`mcp.json`, `.mcp.json`, `.lsp.json`, `hooks/`, `hooks.json`, `monitors/`, `bin/`), the `link-skills` script, `SETUP.md`, this README, `scripts/` and `.github/`, and those PRs are labeled `security-review`.
 - **Releases** are tagged; see [Pin to a release](#pin-to-a-release) and the [changelog](./CHANGELOG.md).
 
 ## Support and legal
