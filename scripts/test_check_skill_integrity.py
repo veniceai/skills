@@ -74,7 +74,7 @@ class AllowsLegitimateLines(unittest.TestCase):
 
 CLAUDE_KEY = "${user_config.venice_api_key}"
 CURSOR_KEY = "${VENICE_API_KEY}"
-SPEC = "@veniceai/mcp-server@0.3.1"
+SPEC = "@veniceai/mcp-server@0.3.2"
 
 
 def pinned(**overrides):
@@ -100,9 +100,9 @@ class ChecksPluginMcpServers(unittest.TestCase):
     FLAGGED = {
         "no version": pinned(args=["-y", "--ignore-scripts", "@veniceai/mcp-server"]),
         "dist-tag": pinned(args=["-y", "--ignore-scripts", "@veniceai/mcp-server@latest"]),
-        "range": pinned(args=["-y", "--ignore-scripts", "@veniceai/mcp-server@^0.3.1"]),
+        "range": pinned(args=["-y", "--ignore-scripts", "@veniceai/mcp-server@^0.3.2"]),
         "unrecorded version": pinned(args=["-y", "--ignore-scripts", "@veniceai/mcp-server@0.3.9"]),
-        "lookalike package": pinned(args=["-y", "--ignore-scripts", "@venice-ai/mcp-server@0.3.1"]),
+        "lookalike package": pinned(args=["-y", "--ignore-scripts", "@venice-ai/mcp-server@0.3.2"]),
         "scripts on": pinned(args=["-y", SPEC]),
         "flag after the package": pinned(args=["-y", SPEC, "--ignore-scripts"]),
         "argument after the package": pinned(args=["-y", "--ignore-scripts", SPEC, "--http"]),
@@ -158,7 +158,7 @@ class ChecksPluginMcpServers(unittest.TestCase):
             self.assertEqual(check.plugin_mcp_findings(Path(root)), [])
 
     def test_the_registry_must_serve_the_recorded_hash(self):
-        recorded = check.MCP_PACKAGES["@veniceai/mcp-server"]["0.3.1"]
+        recorded = check.MCP_PACKAGES["@veniceai/mcp-server"]["0.3.2"]
         urls = []
 
         def serves(integrity):
@@ -171,7 +171,7 @@ class ChecksPluginMcpServers(unittest.TestCase):
             raise OSError("connection refused")
 
         self.assertEqual(check.registry_findings(fetch=serves(recorded)), [])
-        self.assertEqual(urls, ["https://registry.npmjs.org/@veniceai%2Fmcp-server/0.3.1"])
+        self.assertEqual(urls, ["https://registry.npmjs.org/@veniceai%2Fmcp-server/0.3.2"])
         self.assertTrue(check.registry_findings(fetch=serves("sha512-tampered")))
         self.assertTrue(check.registry_findings(fetch=serves(None)))
         self.assertTrue(check.registry_findings(fetch=unreachable))
