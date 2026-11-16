@@ -214,7 +214,8 @@ Wallet holders can also mint a regular API key without the web UI: `GET /api_key
 | `401` | `{ "error": "Admin API key required" }` | `INFERENCE` key on an admin-only route (`/api_keys` management, rate-limit log, `/billing/*`). |
 | `401` | `{ "error": "This model is only available to Pro users" }` | API-key account without a paid plan calling a Pro-only model (x402 wallets are not affected). |
 | `401` | `{ "error": "<message>", "code": "X402_SIGN_IN_…" }` | Bad SIWX on an inference route - see codes below. |
-| `401` | `{ "error": "Invalid Sign-in-with-x signature" }` | Bad SIWX on `/x402/balance` or `/x402/transactions`. |
+| `401` | `{ "error": "<message>", "code": "X402_SIGN_IN_…" or "X402_USER_NOT_ALLOWED", "invalidReason"? }` | Bad SIWX on `/x402/balance` or `/x402/transactions` (`X402SignInError`). `X402_USER_NOT_ALLOWED` also means the Venice account is banned or deleted. |
+| `401` | `{ "error": "X402_USER_NOT_ALLOWED", "message": "..." }` | `POST /x402/top-up`: the paying wallet's Venice account is banned or deleted, or its x402 credit account belongs to a different user. The payment is not settled. |
 | `402` | x402 discovery body (`x402Version`, `accepts`, `authOptions`) | No auth header at all on a route that needs credentials, or no SIWX on `/x402/balance` / `/x402/transactions` (there `accepts` is empty). |
 | `402` | `{ "code": "PAYMENT_REQUIRED", "reason": "insufficient_balance", … }` | Wallet credit below $0.10 - top up via `/x402/top-up`. |
 | `402` | `{ "error": "Insufficient USD or Diem balance…" }` on a wallet | Credit is above $0.10 but below this request's quoted price (video / audio queue). |

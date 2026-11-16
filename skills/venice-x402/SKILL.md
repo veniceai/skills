@@ -184,7 +184,6 @@ When the credit balance is below $0.10, the endpoint returns `402` with a balanc
     "info": { "domain": "api.venice.ai", "uri": "...", "version": "1", "nonce": "...", "issuedAt": "...", "expirationTime": "...", "statement": "Sign in to Venice AI" },
     "supportedChains": [
       { "chainId": "eip155:8453", "type": "eip191" },
-      { "chainId": "eip155:8453", "type": "eip1271" },
       { "chainId": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", "type": "ed25519" }
     ]
   }
@@ -212,17 +211,15 @@ curl "https://api.venice.ai/api/v1/x402/balance/0xYOUR_WALLET" \
     "balanceUsd": 12.5,
     "canConsume": true,
     "minimumTopUpUsd": 5,
-    "suggestedTopUpUsd": 10,
-    "diemBalanceUsd": 5.25
+    "suggestedTopUpUsd": 10
   }
 }
 ```
 
 - `walletAddress` path param: an EVM or Solana address. EVM addresses are compared lowercased; Solana base58 is case-sensitive.
 - The SIWX signer **must match** the path wallet — `403` otherwise.
-- `balanceUsd` is the USDC credit balance (`0` for a wallet that never topped up).
-- `diemBalanceUsd` is present only when the wallet is linked to a Venice account with DIEM remaining this epoch.
-- `canConsume` is `true` if either the credit balance is at least $0.10 or DIEM is available.
+- `balanceUsd` is the USDC credit balance (`0` for a wallet that never topped up). The `200` schema is `additionalProperties: false` and does **not** include `diemBalanceUsd`.
+- `canConsume` reports whether the wallet can currently consume paid x402-backed endpoints.
 
 ## `GET /x402/transactions/{walletAddress}`
 
@@ -281,7 +278,7 @@ Entries are newest first. Query params: `limit` 1–100 (default 50), `offset` �
 
 - **Chains** — Base mainnet (`eip155:8453`) and Solana mainnet (`solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`).
 - **Token** — USDC (6 decimals) on both rails. Native USDC on Base (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`), not USDbC; mint `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` on Solana.
-- **SIWX signature types** — `eip191` and `eip1271` (smart-contract wallets) on Base, `ed25519` on Solana.
+- **SIWX signature types advertised on `402` `siwxChallenge.supportedChains`** — `eip191` on Base and `ed25519` on Solana. The published spec no longer lists `eip1271` in that enum.
 - **Top-up amount** — minimum `$5`, maximum `$10,000` per payment. Read `minimumTopUpUsd` from the API rather than hardcoding it.
 - **Admission** — at least `$0.10` of credit (or available DIEM) to call inference; 5 concurrent requests per wallet.
 - **Rate limits** — `POST /x402/top-up` 10/min per IP; `GET /x402/balance` 30/min and `GET /x402/transactions` 20/min per wallet.
@@ -294,12 +291,12 @@ Body shapes differ by route:
 
 - `POST /x402/top-up`: the code is in `error` — `{ "error": "<CODE>", "message": "...", ... }`.
 - Inference routes: the code is in `code` and `error` is a message — `{ "error": "<message>", "code": "PAYMENT_HEADER_NOT_ACCEPTED" | "X402_SIGN_IN_…" | "X402_CONCURRENCY_LIMIT" }`.
-- `/x402/balance` and `/x402/transactions`: `{ "error": "<message>" }` with no code. The x402 route `429` is `{ "error": "Rate limit exceeded. Please try again later." }`.
+- `/x402/balance` and `/x402/transactions`: `X402SignInError` `{ "error": "<message>", "code": "X402_SIGN_IN_…" | "X402_USER_NOT_ALLOWED", "invalidReason"? }` (`error` and `code` required). The x402 route `429` is `{ "error": "Rate limit exceeded. Please try again later." }`.
 
 | Code | Meaning |
 |---|---|
 | `400` | Top-up validation: `INVALID_PAYMENT_FORMAT`, `INVALID_PAYMENT`, `UNSUPPORTED_NETWORK`, `INVALID_PAYMENT_RECIPIENT`, `UNSUPPORTED_TOKEN`, `UNSUPPORTED_SCHEME` (only `exact`), `INVALID_AMOUNT`, `INVALID_PAYMENT_PAYER`, `AMOUNT_TOO_LOW` (< $5), `AMOUNT_TOO_HIGH` (> $10,000), `PAYMENT_VERIFICATION_FAILED`. Also an invalid wallet path param or query, and `PAYMENT_HEADER_NOT_ACCEPTED` when a payment header is sent to a non-top-up route. |
-| `401` | `SIGN-IN-WITH-X` is **present** but invalid. On inference routes the body names the reason (`X402_SIGN_IN_EXPIRED`, `X402_SIGN_IN_NONCE_REUSED`, `X402_SIGN_IN_INVALID_SIGNATURE`, `X402_SIGN_IN_DOMAIN_MISMATCH`, …); `/x402/balance` and `/x402/transactions` return a generic "Invalid Sign-in-with-x signature". |
+| `401` | `SIGN-IN-WITH-X` is **present** but invalid, or the wallet is not allowed. On inference routes the body names the reason (`X402_SIGN_IN_*`, or `X402_USER_NOT_ALLOWED` when the Venice account of the wallet is banned or deleted, or the wallet's x402 credit account belongs to a different user). `/x402/balance` and `/x402/transactions` return `X402SignInError` with the same `code` family (optional `invalidReason` is the `invalid_siwx_*` spec code). A **missing** header on those two routes is `402`, not `401`. `POST /x402/top-up` `401` is `{ "error": "X402_USER_NOT_ALLOWED", "message": "..." }` — the payment is not settled. |
 | `402` | Discovery on `/x402/top-up` (no payment header); `/x402/balance` and `/x402/transactions` with **no** SIWX header; inference below $0.10; or `SETTLEMENT_FAILED` on top-up (funds were not transferred — safe to retry). |
 | `403` | SIWX wallet ≠ path wallet. |
 | `409` | `PAYMENT_IN_PROGRESS` — the same payment is settling; retry shortly. |
@@ -314,7 +311,7 @@ Body shapes differ by route:
 - The SIWX signer wallet must match the `walletAddress` path param on `balance` / `transactions`. Separate wallets can't inspect each other.
 - `/x402/top-up` needs no auth on the discovery call — the signed payment itself authorizes settlement.
 - Don't read the rail off `topUpInstructions`; it still describes Base only. `accepts[]` is the multi-rail list.
-- `balanceUsd` is the USDC credit balance only. `diemBalanceUsd`, when present, is a **separate** linked-account number.
+- `balanceUsd` is the USDC credit balance only. Do not expect `diemBalanceUsd` on this response (it is not in the schema). Linked-account DIEM spend, when it applies, is still billed on the Venice account, not this ledger.
 - `PAYMENT-REQUIRED` (header, base64 JSON) is not the same payload as the `402` body; `code: "PAYMENT_REQUIRED"` appears only on insufficient-balance bodies.
 - On `/x402/balance` and `/x402/transactions`, a **missing** SIWX header returns `402` (not 401). Only a present-but-invalid header returns `401`.
 - `accepts[].amount` is already in **base units** (`"5000000"` = 5 USDC). Don't multiply by decimals again.
