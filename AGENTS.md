@@ -5,6 +5,7 @@ This repo is the **authoritative Venice API reference**, kept in sync with the V
 ## Read this first
 
 - **`README.md`** — the full skill catalog and how the format works.
+- **`SETUP.md`** — install these skills and the Venice MCP server for a user, step by step.
 - **`skills/<name>/SKILL.md`** — one self-contained reference per API surface (auth, chat, image, video, audio, embeddings, billing, errors, etc.).
 
 ## How to use

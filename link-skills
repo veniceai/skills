@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+# Links each Venice skill into the skills folder of the agents you use.
+# Run ./link-skills --help for the options.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: ./link-skills [--agent <agent>]...
+       ./link-skills --dir <dir>
+
+Links each skill in skills/ into an agent's skills folder, one link per
+skill, so a git pull updates them in place. Safe to run again: it adds
+missing links, takes over any existing link with a skill's name and says
+where it pointed, removes links to skills this clone no longer has, and
+leaves real files and folders alone.
+
+  --agent <agent>  claude-code, codex, cursor, opencode or hermes-agent,
+                   as the skills CLI names them; claude and hermes work
+                   too. Repeat it to link into more than one. Without it,
+                   link-skills links into every one of these agents
+                   installed in your home folder.
+  --dir <dir>      Link into this folder instead, for any other agent.
+  -h, --help       Show this help.
+EOF
+}
+
+repo="$(cd "$(dirname "$0")" && pwd -P)"
+
+# Agents go by the skills CLI's names, which the setup guide also uses; the short names work too.
+agent_id() {
+  case "$1" in
+    claude-code | claude) echo claude-code ;;
+    codex) echo codex ;;
+    cursor) echo cursor ;;
+    opencode) echo opencode ;;
+    hermes-agent | hermes) echo hermes-agent ;;
+    *) return 1 ;;
+  esac
+}
+
+agent_dir() {
+  case "$1" in
+    claude-code) echo "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" ;;
+    codex) echo "$HOME/.agents/skills" ;;
+    cursor) echo "$HOME/.cursor/skills" ;;
+    opencode) echo "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills" ;;
+    hermes-agent) echo "${HERMES_HOME:-$HOME/.hermes}/skills" ;;
+  esac
+}
+
+agent_home() {
+  case "$1" in
+    claude-code) echo "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" ;;
+    codex) echo "${CODEX_HOME:-$HOME/.codex}" ;;
+    cursor) echo "$HOME/.cursor" ;;
+    opencode) echo "${XDG_CONFIG_HOME:-$HOME/.config}/opencode" ;;
+    hermes-agent) echo "${HERMES_HOME:-$HOME/.hermes}" ;;
+  esac
+}
+
+agent_name() {
+  case "$1" in
+    claude-code) echo "Claude Code" ;;
+    codex) echo "Codex" ;;
+    cursor) echo "Cursor" ;;
+    opencode) echo "OpenCode" ;;
+    hermes-agent) echo "Hermes Agent" ;;
+  esac
+}
+
+agents=()
+target=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --agent)
+      [ $# -ge 2 ] || { echo "link-skills: --agent needs an agent name" >&2; exit 2; }
+      agent="$(agent_id "$2")" || { echo "link-skills: unknown agent '$2'; use claude-code, codex, cursor, opencode or hermes-agent" >&2; exit 2; }
+      agents+=("$agent")
+      shift 2
+      ;;
+    --dir)
+      [ $# -ge 2 ] || { echo "link-skills: --dir needs a folder" >&2; exit 2; }
+      target="$2"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "link-skills: unknown option '$1'" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [ -n "$target" ] && [ ${#agents[@]} -gt 0 ]; then
+  echo "link-skills: use --agent or --dir, not both" >&2
+  exit 2
+fi
+
+if [ ! -d "$repo/skills" ]; then
+  echo "link-skills: no skills/ folder next to this script; run it from a clone of veniceai/skills" >&2
+  exit 1
+fi
+
+if [ -z "$target" ] && [ ${#agents[@]} -eq 0 ]; then
+  for agent in claude-code codex cursor opencode hermes-agent; do
+    if [ -d "$(agent_home "$agent")" ]; then
+      agents+=("$agent")
+    fi
+  done
+  if [ ${#agents[@]} -eq 0 ]; then
+    echo "link-skills: found none of claude-code, codex, cursor, opencode or hermes-agent in $HOME; pass --agent <agent> or --dir <dir>" >&2
+    exit 1
+  fi
+fi
+
+link_skills() {
+  local label="$1" dir="$2" skill name dst target link
+  local new=0 repointed=0 unchanged=0 removed=0 kept=0
+  mkdir -p "$dir"
+  for skill in "$repo"/skills/*/; do
+    skill="${skill%/}"
+    [ -f "$skill/SKILL.md" ] || continue
+    name="$(basename "$skill")"
+    dst="$dir/$name"
+    if [ -L "$dst" ]; then
+      target="$(readlink "$dst")"
+      if [ "$target" = "$skill" ]; then
+        unchanged=$((unchanged + 1))
+      else
+        ln -sfn "$skill" "$dst"
+        echo "  $name: repointed from $target"
+        repointed=$((repointed + 1))
+      fi
+    elif [ -e "$dst" ]; then
+      echo "link-skills: left $dst alone because it isn't a link; remove it and run link-skills again to link $name" >&2
+      kept=$((kept + 1))
+    else
+      ln -s "$skill" "$dst"
+      new=$((new + 1))
+    fi
+  done
+  for link in "$dir"/*; do
+    if [ -L "$link" ] && [ ! -e "$link" ]; then
+      case "$(readlink "$link")" in
+        "$repo/skills/"*)
+          rm "$link"
+          removed=$((removed + 1))
+          ;;
+      esac
+    fi
+  done
+  echo "$label: $new linked, $repointed repointed, $unchanged already linked, $removed removed, $kept left alone in $dir"
+  [ "$kept" -eq 0 ]
+}
+
+status=0
+if [ -n "$target" ]; then
+  link_skills "$target" "$target" || status=1
+else
+  for agent in "${agents[@]}"; do
+    link_skills "$(agent_name "$agent")" "$(agent_dir "$agent")" || status=1
+  done
+fi
+
+echo "Start a new agent session if the skills don't show up. To let the agent make images, video and audio itself, add the Venice MCP server: https://docs.venice.ai/guides/integrations/venice-mcp"
+exit "$status"
