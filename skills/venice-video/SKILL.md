@@ -1,6 +1,6 @@
 ---
 name: venice-video
-description: Generate videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video, first/last-frame transitions, video-to-video and upscale, audio input, reference images / videos / audio (R2V) and their per-model caps, Kling elements and scene images, Seedance source-matched edit/extend and omni_reference_task_type, H3 Max Multi-Angle camera_trajectory, and replayed async failures. POST /video/transcriptions is retired (410) — use chat completions with video_url.
+description: Generate videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video, first/last-frame transitions, video-to-video and upscale, audio input, reference images / videos / audio (R2V) including typed image_references / video_references, Seedance 2.5 draft mode and HD upgrade (draft / draft_task_id), Kling elements and scene images, Seedance source-matched edit/extend and omni_reference_task_type, H3 Max Multi-Angle camera_trajectory, and replayed async failures. POST /video/transcriptions is retired (410) — use chat completions with video_url.
 ---
 
 # Venice Video
@@ -57,6 +57,8 @@ Response: `{"quote": 0.55}` (USD).
 
 - Required: `model`, and `duration` for models with fixed durations.
 - `resolution` and `aspect_ratio` fall back to the model default when omitted.
+- `image_url` — image-to-video start frame. When `aspect_ratio` is `auto`, the quote reads this image the same way queue billing does. `http(s)` or `data:` URL.
+- `draft: true` — Seedance 2.5 only: quote a 480p draft. `draft_task_id` — quote the 1080p HD upgrade of your own draft (UUID); **requires authentication**. Do not send both. See [Draft mode](#draft-mode-seedance-25).
 - The quote endpoint **discards** fields a model doesn't use (e.g. `audio` on a model with `audio_configurable: false`, `aspect_ratio` on a model with no `aspect_ratios`, unknown keys) — `/video/queue` rejects them. A successful quote does not prove the queue body is valid.
 - **Upscale models** (`topaz-video-upscale`): quote requires a Bearer API key (`403` without one, so x402 wallets can't quote them — queue directly and rely on the `402` balance check) and `video_url` — Venice fetches the file to detect duration, FPS, and height (`400` if it can't read it). `duration` is ignored. Pass `upscale_factor` (`1` / `2` / `4`) to price the factor you will queue; `resolution: "1x"` / `"2x"` / `"4x"` is a deprecated alias.
 - **Video-to-video models** (e.g. `wan-2-7-video-to-video`): `video_url` is required; duration is detected from the file.
@@ -79,7 +81,7 @@ curl https://api.venice.ai/api/v1/video/queue \
   }'
 ```
 
-Response: `{ "model": "...", "queue_id": "uuid" }`, plus `download_url` for VPS-backed models.
+Response: `{ "model": "...", "queue_id": "uuid" }`, plus `download_url` for VPS-backed models. A draft also returns `is_draft`, `draft_task_id` (pass this on a later queue call to upgrade), `draft_expires_at`, and `can_upgrade_to_hd`.
 
 - Validation and the balance check happen before the `200`; API-key callers are also charged then (x402 wallet callers are charged once the job is accepted). Content screening and the provider submit run **after** the response, so those failures are reported on `/video/retrieve`, not here. Failures are normally refunded (`credits_refunded` in the error body reports the outcome where present), with one exception: the Runway models (`runway-gen4-5`, `runway-gen4-5-text`, `runway-gen4-turbo`) keep the charge when the provider rejects the request on content policy (`credits_refunded: false`).
 - `download_url` is returned for **VPS-backed** models — currently every Grok Imagine video model, including the `*-private` ids and `grok-imagine-1-5-lite-text-to-video` / `grok-imagine-1-5-lite-image-to-video`. Decide by whether the queue response contains `download_url`, not by the model id. When it does, `/video/retrieve` returns JSON status only; `GET` the `download_url` (no auth header) once status is `COMPLETED`. Valid up to 24 h.
@@ -96,7 +98,7 @@ curl https://api.venice.ai/api/v1/video/retrieve \
 
 Body: `model` + `queue_id` (both required), optional `delete_media_on_completion` (default `false`). No other keys are accepted.
 
-- Processing: `200` JSON `{"status":"PROCESSING","average_execution_time":145000,"execution_duration":53200}` (ms; `average_execution_time` is a P80 estimate).
+- Processing: `200` JSON `{"status":"PROCESSING","average_execution_time":145000,"execution_duration":53200}` (ms; `average_execution_time` is a P80 estimate). A draft adds `is_draft`, `draft_task_id`, `draft_expires_at`, `can_upgrade_to_hd`.
 - Completed (most models): `200` binary `video/mp4` body.
 - Completed (VPS-backed): `200` JSON `{"status":"COMPLETED", ...}` — fetch the `download_url` from the queue response.
 - Failed: a non-`200` JSON error (see [Errors](#errors)). Terminal failures (submit failures, content-policy rejections, provider-side failures, expired media) are recorded on the job, so re-polling the same `queue_id` returns the same error. A `429` is transient — back off and poll again.
@@ -112,7 +114,7 @@ curl https://api.venice.ai/api/v1/video/complete \
   -d '{"model":"...","queue_id":"..."}'
 ```
 
-Body: `model` + `queue_id` only. Response: `200` `{"success": true}`, or `{"success": false}` if the delete did not go through. Currently it returns `400` `"Request ID is invalid."` for `queue_id`s issued by `/video/queue`, so don't rely on it: clean up by polling with `delete_media_on_completion: true`.
+Body: `model` + `queue_id` only. Response: `200` `{"success": true}`, or `{"success": false}` if the delete did not go through. Currently it returns `400` `"Request ID is invalid."` for `queue_id`s issued by `/video/queue`, so don't rely on it: clean up by polling with `delete_media_on_completion: true`. A draft created with `draft` is kept until its HD upgrade window ends, so it can still be upgraded.
 
 ## `/video/queue` request fields
 
@@ -139,13 +141,15 @@ Body: `model` + `queue_id` only. Response: `200` `{"success": true}`, or `{"succ
 | `camera_trajectory[]` | array, 2–12 | `minimax-h3-max-multi-angle` only — see [recipe](#h3-max-multi-angle-camera-orbit). |
 | `omni_reference_task_type` | `auto` / `reference` / `edit` / `extend` | `seedance-2-5-reference-to-video-basic` only (`editing` / `extension` accepted as aliases). `edit` / `extend` require `reference_video_urls`. Omitted with `reference_video_urls` present, Venice infers it from the prompt. |
 | `bitrate_mode` | `standard` / `high` | Seedance 2.0 / 2.5 models (not 1.5). Default `standard`; does not change the price. |
-| `image_references[]` | `{image_url, type?: subject\|background, ref_name?}` | Typed references (e.g. `pixverse-c1-reference-to-video`); reference as `@ref_name`. |
-| `video_references[]` | `{video_url, ref_name?, audio_url?}` | Models with `per_reference_audio: true` (e.g. `wan-2-7-reference-to-video`): reference clips with optional per-entity voice. |
+| `image_references[]` | `{image_url, type?: subject\|background, ref_name?, audio_url?}` | Up to 30 typed references (e.g. PixVerse C1). `image_url` required. `type` defaults to `subject`. `ref_name` is how the prompt addresses it (`@ref_name`; PixVerse defaults to `Image1`, `Image2`, …). `audio_url` (WAV/MP3 URL or data URL) is the character's voice when `constraints.per_reference_audio` is `true`. Wan 2.7 R2V takes at most 5 reference images and videos combined. |
+| `video_references[]` | `{video_url, ref_name?, audio_url?}` | Up to 5 clips when `constraints.per_reference_audio` is `true` (e.g. `wan-2-7-reference-to-video`). `video_url` required. Same combined cap of 5 with `image_references` on Wan 2.7. |
+| `draft` | bool | Seedance 2.5 only (spec: models with `supportsDraftMode`). Fast 480p draft. Response includes `draft_task_id`. Cannot be combined with `draft_task_id`. |
+| `draft_task_id` | UUID | Seedance 2.5 only. `queue_id` of **your own** draft to upgrade to 1080p (retrieve schema also names 4k). Duration, aspect ratio, and audio follow the draft; media inputs are ignored. Cannot be combined with `draft`. |
 | `voice_id` | string | `grok-imagine-1-5-reference-to-video-private`: a preset Grok voice id (e.g. `eve`; an invalid id's `400` lists the allowed values); uploaded audio is not supported. |
 | `consents` | object | Seedance face-consent attestation — see [Gotchas](#gotchas). Not used by any model that `/models` lists. |
 | `anon_user_id` | string, ≤ 128 | Optional end-user identifier (printable ASCII, no `\|\|`). |
 
-Every media URL must be a `data:` URL or an `http(s)://` URL on a public host — private, loopback, link-local, and cloud-metadata addresses are rejected with `400`. `bitrate_mode`, `image_references`, `video_references`, `voice_id`, and `anon_user_id` are accepted but not listed in the published OpenAPI schema.
+Every media URL must be a `data:` URL or an `http(s)://` URL on a public host — private, loopback, link-local, and cloud-metadata addresses are rejected with `400`. `bitrate_mode`, `voice_id`, and `anon_user_id` are accepted but not listed in the published OpenAPI schema.
 
 ### Reference media limits
 
@@ -256,6 +260,48 @@ No `prompt` or `duration` needed (duration is detected from the file); `resoluti
 
 `camera_trajectory`: 2–12 keyframes, each with exactly `time`, `azimuth`, `elevation`, `distance` (extra keys are `400`). `time` is 0–1 and strictly increasing, `azimuth` is signed degrees (total absolute travel ≤ 32 turns), `elevation` −90…90, `distance` > 0 relative to the initial camera (1 = unchanged). Omit it to let the model choose the path. `image_url` is required, `prompt` is optional, and the aspect ratio follows the image (sending `aspect_ratio` is `400`).
 
+### Draft mode (Seedance 2.5)
+
+The spec names this for Seedance 2.5 models with `supportsDraftMode`. Live `GET /models?type=video` does not currently expose that flag — send `draft` / `draft_task_id` only on Seedance 2.5 ids, and expect `400` on any other model. Draft and upgrade are **separate billed jobs**; quote each one. Do not send `draft` and `draft_task_id` together.
+
+```bash
+# 1. Quote + queue a 480p draft
+curl https://api.venice.ai/api/v1/video/quote \
+  -H "Content-Type: application/json" \
+  -d '{"model":"seedance-2-5-text-to-video-basic","duration":"5s","aspect_ratio":"16:9","draft":true}'
+
+curl https://api.venice.ai/api/v1/video/queue \
+  -H "Authorization: Bearer $VENICE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2-5-text-to-video-basic",
+    "prompt": "A slow aerial push over misty mountains at sunrise.",
+    "duration": "5s",
+    "aspect_ratio": "16:9",
+    "draft": true
+  }'
+```
+
+Queue `200` includes `queue_id`, `is_draft: true`, `draft_task_id` (same as this `queue_id`), `draft_expires_at` (upgrade window: 7 days from creation), and `can_upgrade_to_hd`. Upgrade within 7 days by queuing again with that `draft_task_id` (quote this call **with auth**):
+
+```bash
+curl https://api.venice.ai/api/v1/video/quote \
+  -H "Authorization: Bearer $VENICE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"seedance-2-5-text-to-video-basic","duration":"5s","draft_task_id":"<draft queue_id>"}'
+
+curl https://api.venice.ai/api/v1/video/queue \
+  -H "Authorization: Bearer $VENICE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2-5-text-to-video-basic",
+    "prompt": "A slow aerial push over misty mountains at sunrise.",
+    "draft_task_id": "<draft queue_id>"
+  }'
+```
+
+The queue `draft_task_id` description says the upgrade is 1080p; the retrieve/queue response field description also names 4k. Duration, aspect ratio, and audio follow the draft; media inputs on the upgrade are ignored. `/video/complete` (and `delete_media_on_completion`) keep a draft until that window ends so it can still be upgraded.
+
 ## `/video/transcriptions` (retired)
 
 `POST /video/transcriptions` has been removed. Every request — authenticated or not — gets `410` with headers `Deprecation: true` and `Link: </api/v1/chat/completions>; rel="successor-version", </api/v1/models>; rel="describedby"`, and an `error` message pointing to the replacement (callers exceeding 60 requests/min per IP get `429` with the same message prefixed by `Rate limit exceeded.`).
@@ -326,3 +372,4 @@ See [`venice-errors`](../venice-errors/SKILL.md) for body shapes and retry strat
 - MiniMax H3 and H3 Max reference-to-video models reject `image_url` / `end_image_url` combined with reference media, and count `audio_url` toward the reference-audio cap.
 - `data:` URLs count toward payload size; large base64 videos can trip `413` — prefer hosted URLs.
 - Prices are dynamic (resolution, duration, audio, reference media, promotions) — always quote; don't hard-code.
+- **Draft vs HD** are two charges. Quote `draft: true` and `draft_task_id` separately. `draft_task_id` quotes require auth. A draft is not deleted until its 7-day upgrade window ends.

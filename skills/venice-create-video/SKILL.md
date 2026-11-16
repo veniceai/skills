@@ -41,7 +41,7 @@ Each model rejects fields it does not support with a `400`, so build the request
 
 Call `venice_video_quote` with `model` and `duration`. It returns the price in USD and costs nothing. Tell the user the price and get a yes before queuing, especially for long clips, high resolutions or several takes.
 
-The MCP quote tool prices by model and duration. If resolution or audio changes the price for that model, quote through `POST /api/v1/video/quote` with those fields too.
+The MCP quote tool prices by model and duration. If resolution or audio changes the price for that model, quote through `POST /api/v1/video/quote` with those fields too. Image-to-video quotes that use `aspect_ratio: "auto"` should include `image_url` so the quote matches queue billing. Seedance 2.5 draft/HD (`draft` / `draft_task_id`) are separate billed jobs — quote each; the HD-upgrade quote needs auth. See [`venice-video`](../venice-video/SKILL.md#draft-mode-seedance-25).
 
 ### 4. Queue
 
@@ -115,7 +115,7 @@ Full error handling is in [`venice-errors`](../venice-errors/SKILL.md).
 
 ## Related skills
 
-- [`venice-video`](../venice-video/SKILL.md): every queue field, reference media, upscale and video-to-video.
+- [`venice-video`](../venice-video/SKILL.md): every queue field, typed references, Seedance 2.5 draft/HD, upscale and video-to-video.
 - [`venice-create-image`](../venice-create-image/SKILL.md): make the first frame for image-to-video.
 - [`venice-models`](../venice-models/SKILL.md): reading model constraints.
 - [`venice-errors`](../venice-errors/SKILL.md): error shapes and retries.
