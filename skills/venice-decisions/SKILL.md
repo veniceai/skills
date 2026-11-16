@@ -1,11 +1,11 @@
 ---
 name: venice-decisions
-description: Call Venice's Beta POST /decisions (and its TypeSafe-compatible alias POST /systemone) to get typed judgments instead of generated text. Covers the Jev "System One" decision model (jev-latest, aliases jev-1-13-0 / typesafe-jev), the state + questions request shape, the three question/answer types (noul yes/no probability, choice with probability distribution + confidence, score on an ordered rubric), token limits (maxStateTokens / maxTotalTokens), input-token pricing, rate limits, and how upstream 422 validation errors surface as 400.
+description: Call Venice's Beta POST /decisions (and its TypeSafe-compatible alias POST /systemone) to get typed judgments instead of generated text. Covers the state + questions request shape, optional images (PNG/JPEG data URI or {content_type, base64}, 1–4), the three question/answer types (noul yes/no probability, choice with probability distribution + confidence, score on an ordered rubric), model discovery via GET /models?type=decision (privacy, maxStateTokens / maxTotalTokens, pricing), rate limits, and how upstream 422 validation errors surface as 400.
 ---
 
 # Venice Decisions (Beta)
 
-`POST /api/v1/decisions` evaluates a `state` (text or JSON) against a map of typed `questions` and returns one structured `answer` per question — probabilities, picks, and scores your code can branch on directly. It does **not** generate text. The only model is TypeSafe's **Jev** (`jev-latest`), a "System One" decision model.
+`POST /api/v1/decisions` evaluates a `state` (text or JSON) against a map of typed `questions` and returns one structured `answer` per question — probabilities, picks, and scores your code can branch on directly. It does **not** generate text. Models are **System One** decision models from `GET /models?type=decision` (the catalog is not Jev-only). Examples below use `jev-latest`.
 
 > **Beta.** The spec labels both routes Beta: "Request/response schemas and behavior may change without notice."
 
@@ -91,8 +91,9 @@ Top level is **strict** — unknown fields are rejected with `400`.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `model` | string | Yes | `jev-latest`, or an alias `jev-1-13-0` / `typesafe-jev`. Missing/empty → `400 "model is required"`; non-string → `400`; unknown → `404` with a suggestion. |
+| `model` | string | Yes | A decision-model id from `GET /models?type=decision`. `jev-latest` also accepts aliases `jev-1-13-0` / `typesafe-jev`. Missing/empty → `400 "model is required"`; non-string → `400`; unknown → `404` with a suggestion. |
 | `state` | string \| object \| array | Yes | What to evaluate. String must be non-empty; array must have ≥ 1 item; object is free-form JSON (not checked by Venice for emptiness). Use structured JSON for chat logs, records, or app state. |
+| `images` | array | No | 1–4 PNG or JPEG images the model should look at, shared by every question. Each entry is a `data:` URI or `{ content_type, base64 }`. Remote URLs are **not** fetched. See [Images](#images). |
 | `questions` | object (map) | Yes | Map of `question_id → question`. At least one entry (`"At least one question is required"`). Answers come back under the same ids. Each question is evaluated in parallel and in isolation against the same state; question ids are not sent to the model, so put all meaning in `instructions`. |
 
 ### Question objects
@@ -107,14 +108,48 @@ Each question is **strict** (no extra keys) and discriminated by `type`. `instru
 
 Any other `type` value is rejected with `400`.
 
+### Images
+
+Optional. Use when the judgment depends on something visual (screenshot, receipt, product photo). Every question in the request sees the same images alongside `state`.
+
+Each entry is one of:
+
+- a `data:` URI string matching `data:image/(png|jpeg|jpg);base64,…`
+- an object `{ "content_type": "image/png" | "image/jpeg" | "image/jpg", "base64": "<raw base64, no data: prefix>" }`
+
+Spec limits (live `CreateDecisionRequestSchema.images`): `minItems` 1, `maxItems` 4; each encoded string `maxLength` 13631488; PNG/JPEG only. Venice does not fetch `http(s)` URLs — embed the bytes. Sending `images: []` fails schema validation (`minItems: 1`); omit the field when you have no images.
+
+```bash
+curl https://api.venice.ai/api/v1/decisions \
+  -H "Authorization: Bearer $VENICE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "jev-latest",
+    "state": "Customer reports that the checkout page shows an error after entering card details.",
+    "images": [
+      "data:image/png;base64,iVBORw0KGgo="
+    ],
+    "questions": {
+      "shows_error": {
+        "type": "noul",
+        "instructions": "Does the screenshot show a visible error message?"
+      }
+    }
+  }'
+```
+
+The placeholders above are schema-shaped, not a real screenshot. Public `GET /models?type=decision` does not currently advertise a vision/image capability flag — the field is on the deployed request schema.
+
 ### Token limits
 
-From `GET /models?type=decision` (`model_spec`):
+From `GET /models?type=decision` (`model_spec`) — **do not hard-code Jev's numbers**:
 
-- `maxStateTokens: 32000` — `state` plus the single longest question.
-- `maxTotalTokens: 64000` — `state` plus all questions combined.
+- `maxStateTokens` — `state` plus the single longest question.
+- `maxTotalTokens` — `state` plus all questions combined.
 
-Venice does **not** count tokens before forwarding; these budgets are enforced by TypeSafe. An oversized request therefore passes Venice validation and fails upstream — as a `400` carrying TypeSafe's message if TypeSafe answers 400/422, otherwise as a `500` (see Errors). The generic JSON body cap is 35 MB.
+On 2026-10-26 the public catalog reported `jev-latest` at 32000 / 64000 and `clef-api` at 32768 / 32768. Re-read the catalog.
+
+Venice does **not** count tokens before forwarding; these budgets are enforced upstream. An oversized request therefore passes Venice validation and fails upstream — as a `400` carrying TypeSafe's message if TypeSafe answers 400/422, otherwise as a `500` (see Errors). The generic JSON body cap is 35 MB.
 
 ## Answer types
 
@@ -214,7 +249,7 @@ Every answer has `type`. The response schema passes unknown extra fields through
 
 | Field | Type | Notes |
 |---|---|---|
-| `model` | string | Always the canonical id `jev-latest`, even if you sent an alias. |
+| `model` | string | Canonical catalog id of the model that ran (e.g. `jev-latest` even if you sent an alias). |
 | `answers` | object | One answer per question id (shapes above). |
 | `usage.input_tokens` | integer ≥ 0 | Tokens for state + questions. Billed. |
 | `usage.output_tokens` | integer ≥ 0 | Tokens produced evaluating the questions. Currently priced at $0. |
@@ -282,11 +317,11 @@ Both routes accept either (see [`venice-auth`](../venice-auth/SKILL.md)):
 
 With no credentials at all you get a `402` x402 discovery response. The spec's `x-payment-info` is `mode: dynamic`, USD, `min 0.001` / `max 10.00`.
 
-API keys whose `modelPrivacy` is `PRIVATE_ONLY` or `PRIVATE_TEXT` are refused (`403`): Jev is an **anonymized** (third-party) model, and `PRIVATE_TEXT` gates decisions as well as text and embeddings.
+API keys whose `modelPrivacy` forbids the selected model's `model_spec.privacy` are refused (`403`). Decision models are **not** all anonymized — read the catalog (`jev-latest` is `anonymized`; `clef-api` is `private` on 2026-10-26). `PRIVATE_TEXT` still gates this route as well as text and embeddings.
 
 ## Pricing & limits
 
-- **Price** (live `GET /models?type=decision`): **$0.042 per 1M input tokens** (0.042 DIEM); output tokens **$0**. A 429-input-token request costs ≈ $0.000018. Always read `model_spec.pricing` for the current number.
+- **Price** — read `model_spec.pricing` on `GET /models?type=decision`. On 2026-10-26 `jev-latest` was **$0.042 / 1M input** and **$0 output**; `clef-api` was **$0.05 / 1M** input and output. Do not assume Jev's numbers.
 - Charged from `usage` **after** a successful response. If the upstream answer is malformed or missing `usage`, you get `500` and are not charged.
 - Balance is checked before the call; insufficient balance → `402`.
 - **Rate limits** (per account, shared by all its keys; Jev-specific override): Paid tier **100 RPM / 1,000,000 TPM**; Partner Tier 1 **300 RPM / 10,000,000 TPM**. One request is counted before the model runs; tokens (`input + output`) are metered afterwards. Check yours with `GET /api_keys/rate_limits` ([`venice-api-keys`](../venice-api-keys/SKILL.md)).
@@ -302,7 +337,7 @@ API keys whose `modelPrivacy` is `PRIVATE_ONLY` or `PRIVATE_TEXT` are refused (`
 | `401` | Auth failed. | Check the key / SIWX header. |
 | `402` | No credentials (x402 discovery); insufficient balance (`"Insufficient USD or Diem balance…"` for keys, structured `PAYMENT_REQUIRED` for x402); per-key USD/DIEM spend limit reached. | API key: add credits at https://venice.ai/settings/api, or raise the key's limit (ADMIN key, `PATCH /api_keys`). Wallet: `POST /x402/top-up` ([`venice-x402`](../venice-x402/SKILL.md)). |
 | `403` | Key privacy setting forbids anonymized models; region or provider restriction; API access disabled for the account. | Use a key with `modelPrivacy: ALL`. |
-| `404` | Unknown `model`. | Send `jev-latest`. |
+| `404` | Unknown `model`. | Send an id from `GET /models?type=decision`. |
 | `400` | Non-JSON `Content-Type` → `"'Content-Type' must be 'application/json'"` (the spec lists `415`, but the server returns `400`). | `Content-Type: application/json`. |
 | `429` | Venice rate limit for your account on this model; **or** TypeSafe capacity (upstream 429/529 → "The model is currently overloaded", with `Retry-After`, upstream value or 30 s); **or** the error-budget lockout (50 non-429 4xx responses within a 30 s window, per key + `model`; this route rejects a `user` field, so all of a key's decisions requests share one bucket). | Honour `Retry-After`; back off with jitter. |
 | `500` | Any other upstream failure (non-400/422/429/529 status), the 30 s upstream timeout, or a malformed upstream answer. Not charged. | Retry with backoff. |
@@ -312,7 +347,8 @@ General retry strategy and body shapes: [`venice-errors`](../venice-errors/SKILL
 
 ## Gotchas
 
-- **Beta, one model.** `GET /models?type=decision` currently returns only `jev-latest`; don't hard-code capabilities beyond what `model_spec` reports.
+- **Beta, catalog models.** `GET /models?type=decision` lists the public System One models (on 2026-10-26: `jev-latest` and `clef-api`). Don't assume Jev-only privacy, pricing, or token limits — read `model_spec`.
+- **Images are embed-only.** The spec rejects remote URLs; send `data:` URIs or `{ content_type, base64 }`, 1–4 PNG/JPEG. Omit `images` rather than sending an empty array.
 - **Not chat.** There is no `messages`, `temperature`, `max_tokens`, streaming, or tools. Adding any unknown field is a `400` (strict schema).
 - **Questions are isolated.** One answer never becomes context for another. If question B depends on A's result, make a second request.
 - **Question ids carry no meaning to the model.** `{"urgent": {...}}` with vague `instructions` won't help — write complete instructions and name the fields in structured state (e.g. "Does `ticket.message` request a refund covered by `refund_policy`?").
