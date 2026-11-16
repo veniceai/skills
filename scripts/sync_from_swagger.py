@@ -13,7 +13,7 @@ Exit code is `0` when everything matches, `1` when drift is detected — wire
 into CI to auto-file an issue.
 
 Usage:
-    python scripts/sync_from_swagger.py --spec https://api.venice.ai/doc/api/swagger.yaml
+    python scripts/sync_from_swagger.py --spec https://api.venice.ai/api/v1/swagger.yaml
     python scripts/sync_from_swagger.py --spec ./swagger.yaml
     python scripts/sync_from_swagger.py --spec ./swagger.yaml --json > report.json
 
@@ -251,7 +251,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--spec",
-        default="https://api.venice.ai/doc/api/swagger.yaml",
+        default="https://api.venice.ai/api/v1/swagger.yaml",
         help="URL or local path to the Venice swagger.yaml.",
     )
     parser.add_argument(

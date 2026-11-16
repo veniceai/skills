@@ -27,9 +27,9 @@ jobs:
         run: |
           set +e
           python scripts/sync_from_swagger.py \
-            --spec https://api.venice.ai/doc/api/swagger.yaml \
+            --spec https://api.venice.ai/api/v1/swagger.yaml \
             | tee sync-report.txt
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Upload report
         if: always()

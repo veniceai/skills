@@ -28,7 +28,7 @@ Diffs the Venice OpenAPI spec against the skills in this repo and flags drift.
 
 ```bash
 python -m pip install pyyaml
-python scripts/sync_from_swagger.py --spec https://api.venice.ai/doc/api/swagger.yaml
+python scripts/sync_from_swagger.py --spec https://api.venice.ai/api/v1/swagger.yaml
 python scripts/sync_from_swagger.py --spec ./swagger.yaml --json > report.json
 ```
 
