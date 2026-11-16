@@ -48,7 +48,7 @@ Call `venice_audio_quote` with `model`, plus `duration_seconds` for models that 
 
 ### 4. Queue
 
-Call `venice_music_generate` with `model` and `prompt`, plus whichever of `duration_seconds`, `lyrics_prompt`, `lyrics_optimizer`, `force_instrumental` or `loop` the model supports. Keep the returned `queue_id` together with the `model`.
+Call `venice_music_generate` with `model` and `prompt`, plus whichever of `duration_seconds`, `lyrics_prompt`, `lyrics_optimizer`, `force_instrumental` or `loop` the model supports. Keep the returned `queue_id` together with the `model`. When `venice_model_details` reports `supports_reference_audios`, you may pass `reference_audio_urls` on `POST /audio/queue` (base64 `data:` URLs only; see [`venice-audio-music`](../venice-audio-music/SKILL.md)).
 
 Use `lyrics_prompt` and `force_instrumental`. The older `lyrics` and `instrumental` names are deprecated.
 

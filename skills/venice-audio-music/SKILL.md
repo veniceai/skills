@@ -1,6 +1,6 @@
 ---
 name: venice-audio-music
-description: Async music, sound-effect and long-form voice generation via Venice. Covers the /audio/quote + /audio/queue + /audio/retrieve + /audio/complete lifecycle, lyrics vs instrumental and the lyrics optimizer, duration options, seamless loop (ElevenLabs sound effects), voice selection incl. custom ElevenLabs Voice IDs, language, speed, model capability probing via /models?type=music, pricing shapes, refunds, and polling.
+description: Async music, sound-effect and long-form voice generation via Venice. Covers the /audio/quote + /audio/queue + /audio/retrieve + /audio/complete lifecycle, lyrics vs instrumental and the lyrics optimizer, duration options, seamless loop (ElevenLabs sound effects), voice selection incl. custom ElevenLabs Voice IDs, reference_audio_urls (when /models reports supports_reference_audios), language, speed, model capability probing via /models?type=music, pricing shapes, refunds, and polling.
 ---
 
 # Venice Music / Async Audio
@@ -90,11 +90,23 @@ The body is strict: every optional field below is **rejected with `400`** when t
 | `force_instrumental` | `supports_force_instrumental=true` only. |
 | `lyrics_optimizer` | Auto-writes lyrics from `prompt`. `supports_lyrics_optimizer=true` only; `lyrics_prompt` must then be empty. |
 | `loop` | Render a seamless loop (end splices into start). `supports_loop=true` only — currently `elevenlabs-sound-effects-v2`. |
-| `voice` | Voice-enabled models only. One of `voices`; defaults to `default_voice`. Models with `supports_custom_voice_id=true` (the ElevenLabs TTS models) also accept a raw ElevenLabs Voice ID. |
+| `voice` | Voice-enabled models only. One of `voices`; defaults to `default_voice`. Models with `supports_custom_voice_id=true` (the ElevenLabs TTS models) also accept a raw ElevenLabs Voice ID. Cannot be combined with `reference_audio_urls` unless `voice` is omitted or set to `Describe in prompt`. |
+| `reference_audio_urls[]` | Optional clips when `/models` reports `supports_reference_audios=true`; at most `max_reference_audios` (3 on live `seed-audio-1-0`). Refer to them in the prompt in order as `@Audio1`, `@Audio2`, …. Each clip must be audio without video, ≤ 30 s and ≤ 10 MB, as a **base64 `data:` URL** (`data:audio/mpeg;base64,…`). `http(s)` URLs are not supported. All clips together must be at most about 22 MB. |
 | `language_code` | ISO 639-1. `supports_language_code=true` only — no model in the current list sets it. |
 | `speed` | `supports_speed=true` only, within `min_speed`–`max_speed`. |
 
 Model-specific rules also apply: `minimax-music-v25` needs a `lyrics_prompt` of at least 10 chars unless `force_instrumental` or `lyrics_optimizer` is `true`; `minimax-music-v26` needs the same unless `force_instrumental` is `true`; `minimax-music-v2` needs a non-blank `lyrics_prompt`.
+
+Reference audio (`seed-audio-1-0` reports `supports_reference_audios=true` and `max_reference_audios=3` on live `/models`):
+
+```json
+{
+  "model": "seed-audio-1-0",
+  "prompt": "Speak in the timbre of @Audio1: welcome to the show.",
+  "voice": "Describe in prompt",
+  "reference_audio_urls": ["data:audio/mpeg;base64,..."]
+}
+```
 
 ### 3. `POST /audio/retrieve` — poll / download
 
@@ -181,6 +193,7 @@ Each `GET /models?type=music` entry's `model_spec` exposes:
 - `supports_force_instrumental`, `supports_loop`, `supports_language_code`
 - `supports_speed`, `default_speed`, `min_speed`, `max_speed`
 - `voices[]`, `default_voice`, `supports_custom_voice_id`
+- `supports_reference_audios`, `max_reference_audios` (present only when reference clips are supported)
 - `duration_options[]`, `min_duration`, `max_duration`, `default_duration`
 - `min_prompt_length`, `prompt_character_limit`
 - `supported_formats`, `default_format` (the output container — informational, not a request field)
@@ -210,7 +223,8 @@ See [`venice-errors`](../venice-errors/SKILL.md) for body shapes.
 ## Gotchas
 
 - **Quote before queue.** Queue charges up front (credits) or checks your x402 balance against the quote. With an API key, compare the quote to `data.balances` from [`GET /api_keys/rate_limits`](../venice-api-keys/SKILL.md), which works with an INFERENCE key and is already capped at the key's spend limit; the request is charged to the first currency that covers the whole quote (DIEM, then earned credits, then bundled credits, then USD; `balances` doesn't list earned credits). With a wallet, use [`/x402/balance/...`](../venice-x402/SKILL.md).
-- Sending an unsupported option (`lyrics_prompt`, `voice`, `speed`, `language_code`, `loop`, `duration_seconds`, …) is a `400`, not a silent no-op. Build the body from `model_spec`.
+- Sending an unsupported option (`lyrics_prompt`, `voice`, `speed`, `language_code`, `loop`, `duration_seconds`, `reference_audio_urls`, …) is a `400`, not a silent no-op. Build the body from `model_spec`.
+- `reference_audio_urls` are queue-only (`/audio/quote` has no such field). Clips must be `data:` URLs, not `http(s)`, and cannot be combined with a preset `voice`.
 - Store `queue_id` **and** `model` — every later call needs both.
 - Media is ephemeral. Save the bytes on retrieve; after `complete` (or `delete_media_on_completion`) the audio is gone.
 - `seed-audio-1-0` takes no `duration_seconds`: it reserves its 120 s output cap at queue time and settles on the actual length when done.
