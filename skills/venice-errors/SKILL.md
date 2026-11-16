@@ -1,6 +1,7 @@
 ---
 name: venice-errors
 description: Handle Venice API errors correctly. Covers the error body shapes (StandardError, DetailedError with validation details/issues, OpenAI-style context_length_exceeded, upstream provider rejections with request_id including TypeSafe/FastAPI validation errors, ContentViolationError, ProviderContentPolicyError, PayloadTooLargeError, the two x402 402 bodies), every meaningful status code (400-504, including 410 for retired endpoints and 403 for modelPrivacy, region, and ipAllowlist), the three families of rate-limit headers, the per-key error budget (FAILED_REQUESTS / UNSUPPORTED_FEATURE_REQUESTS), Retry-After on overloaded models, SSE stream errors, and a backoff strategy that won't trip the error budget.
+license: MIT
 ---
 
 # Venice errors & retries

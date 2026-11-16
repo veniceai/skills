@@ -6,7 +6,7 @@ Thanks for helping make the Venice skill catalog more useful. These guidelines k
 
 ```
 skills/<skill-name>/SKILL.md    One skill per folder
-template/SKILL.md               Starting point for new skills
+template/SKILL.template.md      Starting point for new skills
 ```
 
 Supporting files (helper scripts, reference data) can live alongside `SKILL.md` inside the skill folder and be referenced relative to it.
@@ -23,7 +23,7 @@ Supporting files (helper scripts, reference data) can live alongside `SKILL.md` 
 
 ## Authoring a new skill
 
-1. Copy `template/` to `skills/<your-skill-name>/`.
+1. Copy `template/SKILL.template.md` to `skills/<your-skill-name>/SKILL.md`.
 2. Pick a `name` — `venice-<area>[-<subarea>]` (lowercase, hyphens).
 3. Fill in the frontmatter `description` before writing the body; it forces you to clarify scope.
 4. Write the body, derive everything from `swagger.yaml` / docs.
@@ -38,7 +38,7 @@ Supporting files (helper scripts, reference data) can live alongside `SKILL.md` 
 
 ## Review checklist
 
-- [ ] Frontmatter `name` + `description` present and concrete.
+- [ ] Frontmatter `name` + `description` present and concrete, plus `license: MIT`.
 - [ ] Endpoint table at the top.
 - [ ] At least one `curl` example.
 - [ ] Errors + gotchas section.

@@ -1,6 +1,7 @@
 ---
 name: venice-decisions
 description: Call Venice's Beta POST /decisions (and its TypeSafe-compatible alias POST /systemone) to get typed judgments instead of generated text. Covers the Jev "System One" decision model (jev-latest, aliases jev-1-13-0 / typesafe-jev), the state + questions request shape, the three question/answer types (noul yes/no probability, choice with probability distribution + confidence, score on an ordered rubric), token limits (maxStateTokens / maxTotalTokens), input-token pricing, rate limits, and how upstream 422 validation errors surface as 400.
+license: MIT
 ---
 
 # Venice Decisions (Beta)

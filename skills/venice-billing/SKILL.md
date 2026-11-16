@@ -1,6 +1,7 @@
 ---
 name: venice-billing
 description: Venice billing and usage analytics - GET /billing/balance, GET /billing/usage-history (keyset-paginated per-request ledger, JSON or CSV), and GET /billing/usage-analytics (aggregated by date/model/key). All require an ADMIN key. GET /billing/usage was sunset on 2026-09-16 and now always returns 410. Covers the DIEM/EARNED_CREDITS/BUNDLED_CREDITS/USD consumption priority and building dashboards. (Beta)
+license: MIT
 ---
 
 # Venice Billing

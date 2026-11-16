@@ -1,6 +1,7 @@
 ---
 name: venice-explainer-video
 description: Narrated explainer video workflow with Venice. Use when a user wants a short explainer, product walkthrough or social video built from several generated clips with voiceover and background music. Covers writing and timing the script with a text model, splitting it into scenes that match model clip durations, keeping a consistent look across scenes, quoting the whole project before spending, generating clips, narration and a music bed, and assembling the final MP4 locally with ffmpeg. Uses venice_chat, venice_video_quote, venice_video_generate, venice_video_status, venice_tts, venice_audio_quote and venice_music_generate from the Venice MCP server, or the matching REST endpoints.
+license: MIT
 ---
 
 # Explainer videos with Venice

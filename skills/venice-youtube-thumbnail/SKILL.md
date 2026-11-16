@@ -1,6 +1,7 @@
 ---
 name: venice-youtube-thumbnail
 description: Thumbnail and cover workflow with Venice. Use when a user needs a YouTube thumbnail, a podcast or video cover, or a vertical cover for Shorts, Reels or TikTok. Covers a truthful concept from the video's actual topic, 16:9 and 9:16 framing, leaving room for a headline, in-image text vs adding text afterwards, using a real person's face only from their own photo, generating and comparing variants, focused edits, and saving at the right size. Uses venice_image_generate, venice_image_edit and venice_image_multi_edit from the Venice MCP server, or POST /image/generate and /image/edit.
+license: MIT
 ---
 
 # Thumbnails and covers with Venice

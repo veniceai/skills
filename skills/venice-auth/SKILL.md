@@ -1,6 +1,7 @@
 ---
 name: venice-auth
 description: Authenticate to the Venice API with a Bearer API key or with an x402 / SIWX wallet (EVM on Base, including EIP-1271 smart wallets, or Ed25519 on Solana). Covers which endpoints accept which scheme, the SIGN-IN-WITH-X header format, the SIWE and Solana message fields, the enforced TTL / clock-skew / nonce rules, every X402_SIGN_IN_* error code, the venice-x402-client SDK, and how to choose between the two modes.
+license: MIT
 ---
 
 # Venice Authentication

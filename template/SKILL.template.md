@@ -1,6 +1,7 @@
 ---
 name: my-venice-skill
 description: One or two sentences describing exactly when an agent should load this skill and what it covers. Mention the specific endpoints, parameters, or scenarios so the agent can confidently pick it — vague descriptions hurt skill selection.
+license: MIT
 ---
 
 # My Venice skill

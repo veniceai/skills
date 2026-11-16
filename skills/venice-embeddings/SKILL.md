@@ -1,6 +1,7 @@
 ---
 name: venice-embeddings
 description: Call POST /embeddings on Venice. Covers request shape (input, model, encoding_format, dimensions, user), text-only input (token arrays rejected), per-input and batch limits, per-model dimensions/privacy, the text-embedding-ada-002 alias, API-key privacy gating, OpenAI/LangChain compatibility, response compression (gzip/br), and practical usage for retrieval, clustering, and RAG.
+license: MIT
 ---
 
 # Venice Embeddings

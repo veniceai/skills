@@ -1,6 +1,7 @@
 ---
 name: venice-chat
 description: Call POST /chat/completions on Venice. Covers the OpenAI-compatible request shape, Venice-only venice_parameters (web search, scraping, citations, E2EE, characters, thinking control, X search), anon_user_id, multimodal inputs (images/audio/video/files), tool calls, reasoning controls (reasoning_effort, reasoning.enabled), streaming, prompt caching, structured output, per-model caps, and model feature suffixes.
+license: MIT
 ---
 
 # Venice Chat Completions

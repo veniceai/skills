@@ -1,6 +1,7 @@
 ---
 name: venice-audio-speech
 description: Generate speech from text via POST /audio/speech, and clone a voice via POST /audio/voices. Covers TTS models (Kokoro, Qwen 3, xAI, Inworld, Chatterbox, Orpheus, ElevenLabs Turbo, MiniMax, Gemini Flash, Gradium), voices per model, cloned-voice handles and raw ElevenLabs Voice IDs, per-model output formats (model_spec.supported_formats / default_format), streaming, prompt/style control, temperature/top_p, speed clamping, and language hints.
+license: MIT
 ---
 
 # Venice TTS (`/audio/speech`)

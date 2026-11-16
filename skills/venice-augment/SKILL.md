@@ -1,6 +1,7 @@
 ---
 name: venice-augment
 description: Venice augmentation endpoints for agent pipelines. Covers POST /augment/text-parser (extract text from PDF/EPUB/DOCX/PPTX/XLSX/XLS, plain text and source code; multipart, up to 25MB; JSON or plain-text response), POST /augment/scrape (fetch a URL and return markdown; blocks X/Reddit and private/internal URLs), and POST /augment/search (Brave ZDR or anonymized Google; structured title/url/content/date results, limit up to 20 but effectively capped at 10 Brave / 5 Google). $0.01 per successful call, 20 req/min on scrape and search, privacy, and error shapes.
+license: MIT
 ---
 
 # Venice Augment (text parse / scrape / search)

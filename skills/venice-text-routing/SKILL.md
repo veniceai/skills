@@ -1,6 +1,7 @@
 ---
 name: venice-text-routing
 description: Route a prompt to the right Venice text model based on privacy tier (anonymized / private / TEE / E2EE), modality (vision / audio / video input), capability (reasoning, reasoning effort, code, function calling, X search, large context, structured output), uncensored needs, and cost. Use when a local agent (Claude Code, Hermes, NanoClaw, Codex CLI, etc.) needs to decide whether to handle a prompt locally or escalate to Venice, and if escalating, which Venice text model to call. Sits one level above venice-models (model discovery) and before venice-chat (the call surface).
+license: MIT
 ---
 
 # Venice Text-Model Routing

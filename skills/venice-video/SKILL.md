@@ -1,6 +1,7 @@
 ---
 name: venice-video
 description: Generate videos via Venice. Covers the async /video/quote + /video/queue + /video/retrieve + /video/complete loop, text-to-video, image-to-video, first/last-frame transitions, video-to-video and upscale, audio input, reference images / videos / audio (R2V) and their per-model caps, Kling elements and scene images, Seedance source-matched edit/extend and omni_reference_task_type, H3 Max Multi-Angle camera_trajectory, and replayed async failures. POST /video/transcriptions is retired (410) — use chat completions with video_url.
+license: MIT
 ---
 
 # Venice Video

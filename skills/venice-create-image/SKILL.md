@@ -1,6 +1,7 @@
 ---
 name: venice-create-image
 description: End-to-end image creation workflow with Venice. Use when a user wants finished images, not API docs - "make me a logo", "generate a hero image", "create 4 variations". Covers turning a brief into a prompt, picking a model and its aspect ratios from the live catalog, style presets and style references, variants and seeds, iterating with edit and multi-edit, upscaling, background removal, saving files to disk, and cost. Uses the Venice MCP tools (venice_image_generate, venice_image_edit, venice_image_multi_edit, venice_image_upscale, venice_image_remove_bg, venice_image_styles, venice_list_models, venice_model_details) when available, or POST /image/generate and the /image/* edit endpoints otherwise.
+license: MIT
 ---
 
 # Create images with Venice

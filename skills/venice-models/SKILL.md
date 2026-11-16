@@ -1,6 +1,7 @@
 ---
 name: venice-models
 description: Discover Venice models, their capabilities, constraints, and pricing. Covers GET /models (with the ?type filter - text, image, video, music, tts, asr, embedding, upscale, inpaint, decision, all, code), /models/traits, /models/compatibility_mapping, every ModelResponse field (capabilities, constraints, per-type pricing with promotional rates, uncensored, deprecation, voice-changer and voice-cloning specs), and how to use this to pick the right model programmatically.
+license: MIT
 ---
 
 # Venice Models

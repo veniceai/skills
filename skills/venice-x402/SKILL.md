@@ -1,6 +1,7 @@
 ---
 name: venice-x402
 description: Manage Venice x402 wallet credits. Covers POST /x402/top-up (payment discovery + signed USDC settlement, $5 min / $10,000 max), GET /x402/balance/{walletAddress}, GET /x402/transactions/{walletAddress}, USDC on Base (eip155:8453) and Solana mainnet, the PAYMENT-SIGNATURE / SIGN-IN-WITH-X header names, transaction types TOP_UP/CHARGE/REFUND (multi-component charges, request-level refunds, clamped charges), and the 402 PAYMENT-REQUIRED responses returned by x402-enabled endpoints.
+license: MIT
 ---
 
 # Venice x402 (wallet credits)
