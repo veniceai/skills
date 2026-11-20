@@ -24,7 +24,7 @@ template/      Copy this as a starting point for a new skill
 | [`venice-image-edit`](./skills/venice-image-edit/SKILL.md) | `/image/edit`, `/image/multi-edit`, `/image/upscale`, `/image/background-remove` |
 | [`venice-audio-speech`](./skills/venice-audio-speech/SKILL.md) | `/audio/speech`, `/audio/voices` — TTS models, voices, voice cloning, formats, streaming |
 | [`venice-audio-music`](./skills/venice-audio-music/SKILL.md) | `/audio/quote`, `/audio/queue`, `/audio/retrieve`, `/audio/complete` |
-| [`venice-audio-voice-changer`](./skills/venice-audio-voice-changer/SKILL.md) | `/audio/voice-changer/*` — async speech-to-speech voice conversion (no model open to regular API keys yet) |
+| [`venice-audio-voice-changer`](./skills/venice-audio-voice-changer/SKILL.md) | `/audio/voice-changer/*` — async speech-to-speech voice conversion |
 | [`venice-audio-transcription`](./skills/venice-audio-transcription/SKILL.md) | `/audio/transcriptions` — Whisper, Parakeet, Scribe, Wizper, xAI STT |
 | [`venice-video`](./skills/venice-video/SKILL.md) | `/video/quote`, `/video/queue`, `/video/retrieve`, `/video/complete` (`/video/transcriptions` is retired) |
 | [`venice-decisions`](./skills/venice-decisions/SKILL.md) | `/decisions` and `/systemone` — typed judgments from the Jev decision model (Beta) |

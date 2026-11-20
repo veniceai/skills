@@ -75,8 +75,6 @@ await v.models()
 | Voice changer (async) | `POST /audio/voice-changer/quote`, `/queue`, `/retrieve`, `/complete` | [`venice-audio-voice-changer`](../venice-audio-voice-changer/SKILL.md) |
 | Video (async) | `POST /video/quote`, `/video/queue`, `/video/retrieve`, `/video/complete` | [`venice-video`](../venice-video/SKILL.md) |
 
-Voice changer: the endpoints are in the spec, but no voice-changer model is publicly listed today - check `GET /models?type=music` for a model with `voice_changer: true` first.
-
 ### Catalog
 
 | Category | Endpoints | Skill |
