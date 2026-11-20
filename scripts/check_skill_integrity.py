@@ -84,7 +84,7 @@ PLUGIN_MARKETPLACES = {
 # version means a code owner records the exact artifact it resolves to.
 MCP_PACKAGES = {
     "@veniceai/mcp-server": {
-        "0.3.1": "sha512-v/hz7vg3H+ySwDu4WeigzDa0R2iuc++Yb18YfuEH1NU0pBQllMqn2dKW3n76d/3CQFN0tOi6GhjW2LBVrLzsHA==",
+        "0.3.2": "sha512-n/sOx8wHyl6TDAGHVejddgyXn+ax04GhsYWaC1L0aImImDQK4p21Ud0Cwom9rJiUVDoI3efqBSRh8HwY3wgZ8w==",
     },
 }
 NPX_PREFIX = ["-y", "--ignore-scripts"]
