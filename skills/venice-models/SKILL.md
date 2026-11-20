@@ -159,6 +159,7 @@ curl "https://api.venice.ai/api/v1/models/traits?type=text"
   "object": "list",
   "type": "text",
   "data": {
+    "app_default": "deepseek-v4-1-flash-1017-uncensored",
     "default": "deepseek-v4-1-flash-1017-uncensored",
     "function_calling_default": "deepseek-v4-1-flash-1017-uncensored",
     "default_reasoning": "kimi-k3",
@@ -170,7 +171,7 @@ curl "https://api.venice.ai/api/v1/models/traits?type=text"
 }
 ```
 
-Possible trait keys: `default`, `fastest`, `most_uncensored`, `eliza-default` (any type), `default_code`, `default_reasoning`, `default_vision`, `function_calling_default`, `most_intelligent` (text), `highest_quality` (image). A key only appears while some model holds it - `fastest` is currently unassigned for text. Today only `text` and `image` (and the `all` / `code` filters built from them) return non-empty maps. `?type=all` merges every type into one map, so keys shared across types collide - e.g. `default` resolves to an image model there. The values above are a snapshot; resolve them at runtime.
+Possible trait keys: `default`, `fastest`, `most_uncensored`, `eliza-default` (any type), `app_default`, `default_code`, `default_reasoning`, `default_vision`, `function_calling_default`, `most_intelligent` (text), `highest_quality` (image). `app_default` is the model the Venice chat app presents as its default, and at most one model holds it. A key only appears while some model holds it - `fastest` is currently unassigned for text. Today only `text` and `image` (and the `all` / `code` filters built from them) return non-empty maps. `?type=all` merges every type into one map, so keys shared across types collide - e.g. `default` resolves to an image model there. The values above are a snapshot; resolve them at runtime.
 
 A trait name can also be sent directly as `model` (e.g. `"model": "default_reasoning"`) and Venice resolves it per request.
 
