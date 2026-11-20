@@ -1,6 +1,6 @@
 ---
 name: venice-augment
-description: Venice augmentation endpoints for agent pipelines. Covers POST /augment/text-parser (extract text from PDF/EPUB/DOCX/PPTX/XLSX/XLS, plain text and source code; multipart, up to 25MB; JSON or plain-text response), POST /augment/scrape (fetch a URL and return markdown; blocks X/Reddit and private/internal URLs), and POST /augment/search (Brave ZDR or anonymized Google; structured title/url/content/date results, limit up to 20 but effectively capped at 10 Brave / 5 Google). $0.01 per successful call, 20 req/min on scrape and search, privacy, and error shapes.
+description: Venice augmentation endpoints for agent pipelines. Covers POST /augment/text-parser (extract text from PDF/EPUB/DOCX/PPTX/XLSX/XLS, plain text and source code; multipart, up to 25MB; JSON or plain-text response), POST /augment/scrape (fetch a URL and return markdown; blocks X/Reddit and private/internal URLs), and POST /augment/search (Brave ZDR or anonymized Google; structured title/url/content/date results, limit up to 20 but effectively capped at 10 Brave / 5 Google). $0.01 per successful call, 60 req/min on scrape and search, privacy, and error shapes.
 ---
 
 # Venice Augment (text parse / scrape / search)
@@ -99,7 +99,7 @@ Sites that serve markdown directly are returned as-is; otherwise the page is fet
 - **Blocked URLs** — non-HTTP(S) schemes, URLs with embedded credentials, `localhost` / private / reserved IPs and cloud-metadata hosts return `400`. A public hostname that resolves or redirects to such a target fails with `500`.
 - Unreachable hosts, timeouts and pages with no extractable content return `500` with a message (e.g. `"URL unreachable: …"`). You are not charged.
 - Some sites return a partial body. Check `content` length before piping it into a model.
-- Rate limit: **20 requests/minute per user** (`429` beyond that). The counter runs before URL validation, so rejected URLs also count.
+- Rate limit: **60 requests/minute per user** (`429` beyond that). The counter runs before URL validation, so rejected URLs also count.
 
 ## `POST /augment/search` — web search
 
@@ -153,8 +153,8 @@ curl -X POST https://api.venice.ai/api/v1/augment/search \
 ### Tips
 
 - For cited answers inside a chat completion, use `/chat/completions` with `venice_parameters.enable_web_search` + `enable_web_citations` instead. See [`venice-chat`](../venice-chat/SKILL.md).
-- For "search + read" pipelines, feed `results[*].url` into `/augment/scrape` — mind the 20/min scrape limit.
-- Rate limit: **20 requests/minute per user** (`429` beyond that). Requests that fail body validation still count.
+- For "search + read" pipelines, feed `results[*].url` into `/augment/scrape` — mind the 60/min scrape limit.
+- Rate limit: **60 requests/minute per user** (`429` beyond that). Requests that fail body validation still count.
 
 ## Errors
 
@@ -165,7 +165,7 @@ curl -X POST https://api.venice.ai/api/v1/augment/search \
 | `402` | Insufficient balance or the key's USD/DIEM spend limit reached. Bearer → `"Insufficient USD or Diem balance…"`; x402 → payment-required body + `PAYMENT-REQUIRED` header. Requests with no credentials at all also get `402` (x402 discovery challenge). |
 | `403` | API access disabled for the account (`"API access has been disabled for this account…"`). |
 | `413` | Text-parser file over 25 MB (`PAYLOAD_TOO_LARGE`). |
-| `429` | Per-endpoint rate limit (scrape/search: 20/min) or the failed-request limiter. Back off with jitter. |
+| `429` | Per-endpoint rate limit (scrape/search: 60/min) or the failed-request limiter. Back off with jitter. |
 | `500` | Scrape fetch failure, search provider failure (`"Search provider failed to return results…"`), or parse failure (`"Failed to parse document"`). Not charged; safe to retry. |
 
 See [`venice-errors`](../venice-errors/SKILL.md) for body shapes and retry strategy.
