@@ -152,6 +152,7 @@ The settlement result is also returned base64-encoded in the `PAYMENT-RESPONSE` 
 
 Send a fresh SIWX proof for the wallet on each request. Venice debits the wallet's credit balance for each request — after it is served for most endpoints. Queued audio jobs are checked against the quote at queue time and charged once the provider accepts the job (Seed Audio on completion); failed jobs are refunded.
 
+- Video (`/video/{queue,retrieve,complete}`) and voice changer (`/audio/voice-changer/{queue,retrieve,complete}`) don't currently accept SIWX: a SIWX-only request gets `401` `X402_NOT_ACCEPTED`. Call them with a Bearer API key; [`venice-auth`](../venice-auth/SKILL.md#which-endpoints-accept-what) lists every route's auth.
 - A wallet needs at least **$0.10** of credit to be admitted.
 - An EVM wallet that is linked to a Venice account with staked DIEM spends that **DIEM first**; the USDC credit balance is used only when no DIEM is available. While DIEM remains, the request is billed to the linked account, not the wallet's credit, so a `402` in that state is not fixed by `/x402/top-up` — wait for the next epoch or fund the linked account.
 - At most **5 concurrent requests per wallet**; the 6th gets `429` `X402_CONCURRENCY_LIMIT`.
