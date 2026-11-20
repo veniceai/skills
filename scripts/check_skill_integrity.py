@@ -34,6 +34,7 @@ ALLOWED_HOSTS = {
     "docs.venice.ai",
     "venice.ai",
     "cdn.venice.ai",
+    "metrics.venice.ai",
     "example.com",
     "huggingface.co",
     "api.openai.com",

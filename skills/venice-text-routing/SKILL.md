@@ -1,6 +1,6 @@
 ---
 name: venice-text-routing
-description: Route a prompt to the right Venice text model based on privacy tier (anonymized / private / TEE / E2EE), modality (vision / audio / video input), capability (reasoning, reasoning effort, code, function calling, X search, large context, structured output), uncensored needs, and cost. Use when a local agent (Claude Code, Hermes, NanoClaw, Codex CLI, etc.) needs to decide whether to handle a prompt locally or escalate to Venice, and if escalating, which Venice text model to call. Sits one level above venice-models (model discovery) and before venice-chat (the call surface).
+description: Route a prompt to the right Venice text model based on privacy tier (anonymized / private / TEE / E2EE), modality (vision / audio / video input), capability (reasoning, reasoning effort, code, function calling, X search, large context, structured output), uncensored needs, cost, and live health and speed from metrics.venice.ai. Use when a local agent (Claude Code, Hermes, NanoClaw, Codex CLI, etc.) needs to decide whether to handle a prompt locally or escalate to Venice, and if escalating, which Venice text model to call. Sits one level above venice-models (model discovery) and before venice-chat (the call surface).
 ---
 
 # Venice Text-Model Routing
@@ -156,11 +156,20 @@ Walk top-down. Stop at the first rule that applies.
    - User asked for "best", "frontier", "most intelligent", "smartest"
      → resolve trait `most_intelligent` from the snapshot. Skip cost-min step.
 
-7. Cost minimization
+7. Live health and speed (at call time)
+   - Fetch https://metrics.venice.ai/v1/index.json (no auth, refreshed every 5 minutes).
+   - Skip candidates whose uptime_24h_percent is under 95, or whose latest quarter hour
+     in https://metrics.venice.ai/v1/models/{model_id}.json reads down or degraded.
+     insufficient_data and no_data mean no data, not healthy: keep the model, but don't
+     count on it.
+   - Latency-sensitive prompt → prefer lower performance["1h"].ttft_ms.p90 (use "24h"
+     when the hour has no figure). Size the request timeout from p99.
+
+8. Cost minimization
    - From surviving candidates, pick the smallest cost tier (XS → S → M → L → Frontier).
      Tie-break by lower output $/1M, then lower input $/1M.
 
-8. Sanity filters (apply throughout)
+9. Sanity filters (apply throughout)
    - Drop model_spec.beta === true (snapshot: beta_access) unless your key has
      beta access (such models are only listed to beta-access keys anyway).
      betaModel === true (snapshot: beta_status) marks callable beta-status
@@ -231,7 +240,7 @@ Prompt: "Here's our customer churn dataset (PII). Reason about which factors dri
 
 - Step 2 → privacy gate requires `privacy: "private"`.
 - Step 4 → reasoning required → `supportsReasoning: true`.
-- Step 7 → among private candidates with reasoning, pick the cheapest.
+- Step 8 → among private candidates with reasoning, pick the cheapest.
 - → a private reasoning model, or an `e2ee-*` model in TEE-only mode if the user also wants attestation.
 
 **Example 3 — multi-image vision**
@@ -239,7 +248,7 @@ Prompt: "Here's our customer churn dataset (PII). Reason about which factors dri
 Prompt: 3 product photos + "Compare these for build quality."
 
 - Step 3 → `supportsVision && supportsMultipleImages && maxImages >= 3`.
-- Step 7 → cheapest survivor, or `traits.default_vision`.
+- Step 8 → cheapest survivor, or `traits.default_vision`.
 
 **Example 4 — frontier intelligence on a long doc**
 

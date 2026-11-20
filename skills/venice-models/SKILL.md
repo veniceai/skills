@@ -1,6 +1,6 @@
 ---
 name: venice-models
-description: Discover Venice models, their capabilities, constraints, and pricing. Covers GET /models (with the ?type filter - text, image, video, music, tts, asr, embedding, upscale, inpaint, decision, all, code), /models/traits, /models/compatibility_mapping, every ModelResponse field (capabilities, constraints, per-type pricing with promotional rates, uncensored, deprecation, voice-changer and voice-cloning specs), and how to use this to pick the right model programmatically.
+description: Discover Venice models, their capabilities, constraints, and pricing. Covers GET /models (with the ?type filter - text, image, video, music, tts, asr, embedding, upscale, inpaint, decision, all, code), /models/traits, /models/compatibility_mapping, every ModelResponse field (capabilities, constraints, per-type pricing with promotional rates, uncensored, deprecation, voice-changer and voice-cloning specs), live speed, uptime and GPQA Diamond scores from metrics.venice.ai, and how to use this to pick the right model programmatically.
 ---
 
 # Venice Models
@@ -195,7 +195,35 @@ curl "https://api.venice.ai/api/v1/models/compatibility_mapping?type=text"
 
 Keys are legacy OpenAI / Anthropic / older Venice IDs; values are the Venice model each one resolves to. `?type=embedding` currently maps `text-embedding-ada-002` → `text-embedding-bge-m3`; other types are empty. Like traits, an alias can be sent directly as `model`. Useful when porting code that hard-codes old OpenAI IDs - but check the target's capabilities, since the mapping is by ID only.
 
+## Live speed, uptime and benchmarks
+
+`GET /models` says what a model can do, not how it's running right now. Venice publishes each text model's live figures as JSON, readable without auth and refreshed every 5 minutes:
+
+| File | Contents |
+|---|---|
+| `https://metrics.venice.ai/v1/index.json` | Every text model: `uptime_24h_percent`, and `performance` with `ttft_ms` (`p50`, `p75`, `p90`, `p95` and `p99`, in milliseconds) and `tokens_per_second`, for `1h`, `4h` and `24h` |
+| `https://metrics.venice.ai/v1/models/{model_id}.json` | The same model's last 24 hours, quarter hour by quarter hour, each with an uptime `status` |
+| `https://metrics.venice.ai/v1/benchmarks.json` | Venice's GPQA Diamond scores, run through the API, one run per reasoning setting |
+
+- A figure without enough traffic is `null`, and a model without recent traffic may have none at all.
+- A quarter hour's `status` is `up`, `degraded` (under 95%), `down` (under 80%), `insufficient_data` (a request failed, but traffic was too low to call it degraded) or `no_data` (no requests). Treat the last two as no data, not as healthy.
+- Size timeouts from the slow tail: p90 or p99 `ttft_ms`, plus your max output tokens divided by `tokens_per_second`. Reasoning models can stream for minutes on hard prompts, so prefer an idle timeout on the stream to a short total cap.
+- The files are cacheable for 60 seconds; when picking a model, don't hold them longer.
+
+How they're measured: https://docs.venice.ai/models/methodology
+
 ## Common patterns
+
+### Pick the fastest healthy model
+
+```javascript
+const { models } = await (await fetch("https://metrics.venice.ai/v1/index.json")).json();
+const p90 = (m) => m.performance?.["1h"]?.ttft_ms?.p90 ?? m.performance?.["24h"]?.ttft_ms?.p90;
+const fastest = models
+  .filter((m) => !m.deprecated && (m.uptime_24h_percent ?? 0) >= 95 && p90(m) != null)
+  .sort((a, b) => p90(a) - p90(b));
+// Join with GET /models by id to require capabilities, such as supportsFunctionCalling.
+```
 
 ### Pick a vision + reasoning model at runtime
 
