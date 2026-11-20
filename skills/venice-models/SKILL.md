@@ -60,7 +60,7 @@ curl "https://api.venice.ai/api/v1/models?type=text"
         "privacy": "private",
         "modelSource": "https://huggingface.co/zai-org/GLM-5.2",
         "offline": false,
-        "traits": ["default", "function_calling_default"],
+        "traits": [],
         "capabilities": { "supportsReasoning": true, "reasoningEffortOptions": ["none", "high", "max"], "…": "…" },
         "pricing": {
           "input":       { "usd": 1.4,  "diem": 1.4 },
@@ -159,8 +159,8 @@ curl "https://api.venice.ai/api/v1/models/traits?type=text"
   "object": "list",
   "type": "text",
   "data": {
-    "default": "zai-org-glm-5-2",
-    "function_calling_default": "zai-org-glm-5-2",
+    "default": "deepseek-v4-1-flash-1017-uncensored",
+    "function_calling_default": "deepseek-v4-1-flash-1017-uncensored",
     "default_reasoning": "kimi-k3",
     "default_code": "deepseek-v4-pro-0813",
     "default_vision": "qwen-3-8-27b",
