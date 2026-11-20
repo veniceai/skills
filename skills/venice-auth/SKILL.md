@@ -19,12 +19,12 @@ Venice declares two auth schemes in its OpenAPI spec: `BearerAuth` (API key) and
 | Endpoints | Bearer key | SIWX wallet |
 |---|---|---|
 | Inference: `/chat/completions`, `/responses`, `/embeddings`, `/decisions` (+ `/systemone`), `/image/*` (generate, edit, multi-edit, upscale, background-remove), `/images/generations`, `/audio/speech`, `/audio/transcriptions`, `/audio/voices`, `/audio/{queue,retrieve,complete}`, `/audio/voice-changer/{queue,retrieve,complete}`, `/video/{queue,retrieve,complete}`, `/augment/*`, `POST /crypto/rpc/{network}` | yes | yes |
-| `/api_keys*` (except `generate_web3_key`), `/billing/*` (except the retired `/billing/usage`, which answers `410` without auth), `/characters*` | yes | no - a SIWX header alone gets `401 Authentication failed` |
+| `/api_keys*` (except `generate_web3_key`), `/billing/*` (except the retired `/billing/usage`, which answers `410` without auth), `/characters*` | yes | no - a SIWX header alone gets `401` `X402_NOT_ACCEPTED` |
 | `GET /x402/balance/{wallet}`, `GET /x402/transactions/{wallet}` | no | yes - signer must be `{wallet}` (else `403`) |
 | `POST /x402/top-up` | - | payment header (see below) |
 | `/models*`, `/image/styles`, `/video/quote` (except upscale models: Bearer key required), `/audio/quote`, `/audio/voice-changer/quote`, `/crypto/rpc/networks`, `/tee/*`, `/api_keys/generate_web3_key` | not required | not required |
 
-On routes that accept a wallet, a `SIGN-IN-WITH-X` header wins: Venice uses wallet auth even when `Authorization` is also present. On Bearer-only routes the SIWX header is ignored. A request with **neither** header on any route that needs credentials (Bearer-only routes included) gets `402` with an x402 discovery body (payment options, SIWX challenge, `authOptions`), not `401`.
+On routes that accept a wallet, a `SIGN-IN-WITH-X` header wins: Venice uses wallet auth even when `Authorization` is also present. On Bearer-only routes the SIWX header is ignored when an `Authorization` header is present; without one it gets `401` `X402_NOT_ACCEPTED`. A request with **neither** header on any route that needs credentials (Bearer-only routes included) gets `402` with an x402 discovery body (payment options, SIWX challenge, `authOptions`), not `401`.
 
 ## Option A - Bearer API key
 
@@ -190,7 +190,7 @@ POST /x402/top-up                # no payment header → 402 with Base + Solana 
 POST /x402/top-up                # with PAYMENT-SIGNATURE header → credits land on the paying wallet
 ```
 
-`PAYMENT-SIGNATURE` is the canonical x402 v2 payment header; `X-402-Payment` and `X-PAYMENT` are also accepted. Payment headers are accepted **only** on `/x402/top-up` - sending one to an inference route returns `400 PAYMENT_HEADER_NOT_ACCEPTED`. Minimum top-up $5. See [`venice-x402`](../venice-x402/SKILL.md).
+`PAYMENT-SIGNATURE` is the canonical x402 v2 payment header; `X-402-Payment` and `X-PAYMENT` are also accepted. Payment headers are accepted **only** on `/x402/top-up` - sending one to a route that accepts wallets returns `400 PAYMENT_HEADER_NOT_ACCEPTED`, and to a Bearer-only route `401 X402_NOT_ACCEPTED`. Minimum top-up $5. See [`venice-x402`](../venice-x402/SKILL.md).
 
 ## Choosing between the two
 
@@ -210,12 +210,13 @@ Wallet holders can also mint a regular API key without the web UI: `GET /api_key
 
 | Status | Body | Likely cause |
 |---|---|---|
-| `401` | `{ "error": "Authentication failed" }` | Malformed, unknown, expired or revoked API key, or only a SIWX header on a Bearer-only route. |
+| `401` | `{ "error": "Authentication failed" }` | Malformed, unknown, expired or revoked API key. |
 | `401` | `{ "error": "Admin API key required" }` | `INFERENCE` key on an admin-only route (`/api_keys` management, rate-limit log, `/billing/*`). |
 | `401` | `{ "error": "This model is only available to Pro users" }` | API-key account without a paid plan calling a Pro-only model (x402 wallets are not affected). |
 | `401` | `{ "error": "<message>", "code": "X402_SIGN_IN_…" }` | Bad SIWX on an inference route - see codes below. |
 | `401` | `{ "error": "<message>", "code": "X402_SIGN_IN_…" or "X402_USER_NOT_ALLOWED", "invalidReason"? }` | Bad SIWX on `/x402/balance` or `/x402/transactions` (`X402SignInError`). `X402_USER_NOT_ALLOWED` also means the Venice account is banned or deleted. |
 | `401` | `{ "error": "X402_USER_NOT_ALLOWED", "message": "..." }` | `POST /x402/top-up`: the paying wallet's Venice account is banned or deleted, or its x402 credit account belongs to a different user. The payment is not settled. |
+| `401` | `{ "error": "This endpoint does not accept x402. …", "code": "X402_NOT_ACCEPTED" }` | A SIWX or payment header with no API key on a Bearer-only route. Send a Bearer key. |
 | `402` | x402 discovery body (`x402Version`, `accepts`, `authOptions`) | No auth header at all on a route that needs credentials, or no SIWX on `/x402/balance` / `/x402/transactions` (there `accepts` is empty). |
 | `402` | `{ "code": "PAYMENT_REQUIRED", "reason": "insufficient_balance", … }` | Wallet credit below $0.10 - top up via `/x402/top-up`. |
 | `402` | `{ "error": "Insufficient USD or Diem balance…" }` on a wallet | Credit is above $0.10 but below this request's quoted price (video / audio queue). |

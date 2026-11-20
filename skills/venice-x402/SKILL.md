@@ -26,7 +26,7 @@ Send the canonical name in new code; the others exist so older integrations keep
 | Payment requirements (response) | `PAYMENT-REQUIRED` | — |
 | Settlement result (response) | `PAYMENT-RESPONSE` | — |
 
-A payment header is accepted **only** on `POST /x402/top-up`. Sending one to an inference route (or `/crypto/rpc/*`) returns `400` `PAYMENT_HEADER_NOT_ACCEPTED` — top up first, then authenticate inference with `SIGN-IN-WITH-X`.
+A payment header is accepted **only** on `POST /x402/top-up`. Sending one to an inference route (or `/crypto/rpc/*`) returns `400` `PAYMENT_HEADER_NOT_ACCEPTED` — top up first, then authenticate inference with `SIGN-IN-WITH-X`. On Bearer-only routes, which take no wallet auth, it gets `401` `X402_NOT_ACCEPTED` instead.
 
 ## Payment safety
 
@@ -296,7 +296,7 @@ Body shapes differ by route:
 | Code | Meaning |
 |---|---|
 | `400` | Top-up validation: `INVALID_PAYMENT_FORMAT`, `INVALID_PAYMENT`, `UNSUPPORTED_NETWORK`, `INVALID_PAYMENT_RECIPIENT`, `UNSUPPORTED_TOKEN`, `UNSUPPORTED_SCHEME` (only `exact`), `INVALID_AMOUNT`, `INVALID_PAYMENT_PAYER`, `AMOUNT_TOO_LOW` (< $5), `AMOUNT_TOO_HIGH` (> $10,000), `PAYMENT_VERIFICATION_FAILED`. Also an invalid wallet path param or query, and `PAYMENT_HEADER_NOT_ACCEPTED` when a payment header is sent to a non-top-up route. |
-| `401` | `SIGN-IN-WITH-X` is **present** but invalid, or the wallet is not allowed. On inference routes the body names the reason (`X402_SIGN_IN_*`, or `X402_USER_NOT_ALLOWED` when the Venice account of the wallet is banned or deleted, or the wallet's x402 credit account belongs to a different user). `/x402/balance` and `/x402/transactions` return `X402SignInError` with the same `code` family (optional `invalidReason` is the `invalid_siwx_*` spec code). A **missing** header on those two routes is `402`, not `401`. `POST /x402/top-up` `401` is `{ "error": "X402_USER_NOT_ALLOWED", "message": "..." }` — the payment is not settled. |
+| `401` | `SIGN-IN-WITH-X` is **present** but invalid, or the wallet is not allowed. On inference routes the body names the reason (`X402_SIGN_IN_*`, or `X402_USER_NOT_ALLOWED` when the Venice account of the wallet is banned or deleted, or the wallet's x402 credit account belongs to a different user). `/x402/balance` and `/x402/transactions` return `X402SignInError` with the same `code` family (optional `invalidReason` is the `invalid_siwx_*` spec code). A **missing** header on those two routes is `402`, not `401`. `POST /x402/top-up` `401` is `{ "error": "X402_USER_NOT_ALLOWED", "message": "..." }` — the payment is not settled. A SIWX or payment header with no API key on a Bearer-only route gets `X402_NOT_ACCEPTED`. |
 | `402` | Discovery on `/x402/top-up` (no payment header); `/x402/balance` and `/x402/transactions` with **no** SIWX header; inference below $0.10; or `SETTLEMENT_FAILED` on top-up (funds were not transferred — safe to retry). |
 | `403` | SIWX wallet ≠ path wallet. |
 | `409` | `PAYMENT_IN_PROGRESS` — the same payment is settling; retry shortly. |
