@@ -267,7 +267,7 @@ Entries are newest first. Query params: `limit` 1–100 (default 50), `offset` �
 |---|---|---|
 | `TOP_UP` | positive | A `/x402/top-up` settlement (or a manual credit by Venice support). |
 | `CHARGE` | negative | Inference debit. `requestId` / `modelId` link back to the call. |
-| `REFUND` | positive | Refund of a failed request's charges (e.g. a prepaid audio / voice-changer job that failed). |
+| `REFUND` | positive | Refund of a failed request's charges (e.g. a prepaid audio job that failed). |
 
 - One request can produce **several** `CHARGE` rows with the same `requestId` — e.g. the model charge plus an add-on such as web search — distinguished by `modelId`. Sum them per `requestId` for the request's cost.
 - A `REFUND` is one row per request that returns the **sum** of that request's charges. Its `modelId` is the charged model when there was a single charge, and `null` when several were refunded together.

@@ -10,9 +10,11 @@ Speech-to-speech conversion: upload a recording, get the same speech back in a d
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | `POST` | `/api/v1/audio/voice-changer/quote` | **None required** (key optional) | Price for a source of N seconds. |
-| `POST` | `/api/v1/audio/voice-changer/queue` | Bearer key or x402 (SIWX) | `multipart/form-data` (`file`) **or** JSON (`audio_url`). Charges and enqueues. 40 req/min per user. |
-| `POST` | `/api/v1/audio/voice-changer/retrieve` | Bearer key or x402 (SIWX) | Status JSON or the converted audio. 120 req/min per user. |
-| `POST` | `/api/v1/audio/voice-changer/complete` | Bearer key or x402 (SIWX) | Release the provider-held media. |
+| `POST` | `/api/v1/audio/voice-changer/queue` | Bearer key | `multipart/form-data` (`file`) **or** JSON (`audio_url`). Charges and enqueues. 40 req/min per user. |
+| `POST` | `/api/v1/audio/voice-changer/retrieve` | Bearer key | Status JSON or the converted audio. 120 req/min per user. |
+| `POST` | `/api/v1/audio/voice-changer/complete` | Bearer key | Release the provider-held media. |
+
+Queue, retrieve and complete don't currently accept x402 wallets. A `SIGN-IN-WITH-X` header alone gets `401` `X402_NOT_ACCEPTED`. A request with no credentials still gets the `402` x402 discovery challenge: answer it with a Bearer key, not a wallet signature. See [`venice-auth`](../venice-auth/SKILL.md).
 
 Each endpoint only accepts voice-changer models (`400` otherwise, naming the endpoint to use instead), and `/audio/quote`, `/audio/queue`, `/audio/retrieve`, `/audio/complete` refuse voice-changer models the same way.
 
@@ -171,8 +173,8 @@ async function convert(path: string, voice: string) {
 | Code | Meaning |
 |---|---|
 | `400` | Strict-body error; both or neither of `file` / `audio_url`; `audio_url` unreachable or unusable; source not in `accepted_audio_formats`, has a video track, or its length can't be read; voice rejected by the provider (at queue, or later on retrieve — then refunded); non-voice-changer model; unknown / foreign `queue_id` (`"Request ID is invalid."`). |
-| `401` | Authentication failed. |
-| `402` | Insufficient balance (checked against the price for the measured length). Wallet callers above the $0.10 floor but below the price get the plain `{"error":"Insufficient USD or Diem balance…"}` body, not `PAYMENT_REQUIRED`. |
+| `401` | Authentication failed: an invalid API key. A `SIGN-IN-WITH-X` or x402 payment header without an API key gets `X402_NOT_ACCEPTED` instead (x402 isn't accepted here). |
+| `402` | Insufficient balance (checked against the price for the measured length). A request with no credentials also gets `402`, with the x402 discovery challenge; send a Bearer key. |
 | `403` | A `PRIVATE_ONLY` key calling an `anonymized` model, or region restriction. |
 | `404` | Model not found; on retrieve, media expired or already delivered. |
 | `413` | Uploaded file over 25 MB. |

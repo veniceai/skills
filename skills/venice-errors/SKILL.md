@@ -97,7 +97,7 @@ Check `credits_refunded`; optionally re-queue on `recommended_model`.
 
 ### 8. x402 `402` bodies
 
-A `402` comes in two forms. Both also set the `PAYMENT-REQUIRED` header. The no-credentials form is returned on every route that needs credentials, including Bearer-only routes (`/api_keys*`, `/billing/*`, `/characters*`, `/video/{queue,retrieve,complete}`), where its payment options don't apply.
+A `402` comes in two forms. Both also set the `PAYMENT-REQUIRED` header. The no-credentials form is returned on every route that needs credentials, including Bearer-only routes (`/api_keys*`, `/billing/*`, `/characters*`, `/video/{queue,retrieve,complete}`, `/audio/voice-changer/{queue,retrieve,complete}`), where its payment options don't apply.
 
 **No credentials at all** - x402 v2 discovery (not `401`):
 
@@ -213,7 +213,7 @@ The unsupported-feature bucket uses the same wording with `> 200`. So a client t
 ### Retry with modification
 
 - `402` with `code: "PAYMENT_REQUIRED"` - top up via `/x402/top-up` within the user's spend cap (see [`venice-x402`](../venice-x402/SKILL.md)), then retry.
-- `402` with `x402Version` (no credentials) - add `Authorization: Bearer …`, or `SIGN-IN-WITH-X` on routes that accept wallets. Bearer-only routes (`/api_keys*`, `/billing/*`, `/characters*`, `/video/{queue,retrieve,complete}`) reject SIWX with `401` `X402_NOT_ACCEPTED`; send a Bearer key there.
+- `402` with `x402Version` (no credentials) - add `Authorization: Bearer …`, or `SIGN-IN-WITH-X` on routes that accept wallets. Bearer-only routes (`/api_keys*`, `/billing/*`, `/characters*`, `/video/{queue,retrieve,complete}`, `/audio/voice-changer/{queue,retrieve,complete}`) reject SIWX with `401` `X402_NOT_ACCEPTED`; send a Bearer key there.
 - Any retry with wallet auth needs a **newly signed** `SIGN-IN-WITH-X` header - each nonce is accepted once, so re-sending the original header fails with `X402_SIGN_IN_NONCE_REUSED`.
 - `402` on an API key - surface to the user.
 - `422` with `suggested_prompt` - one retry with the safer prompt.

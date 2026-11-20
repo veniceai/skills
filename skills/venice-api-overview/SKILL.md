@@ -35,8 +35,8 @@ Not every endpoint accepts both:
 
 | Endpoints | Accepts |
 |---|---|
-| Inference: chat, responses, embeddings, decisions, image, audio (speech, transcriptions, voices, queue/retrieve/complete, voice-changer queue/retrieve/complete), augment, `POST /crypto/rpc/{network}` | Bearer **or** SIWX |
-| `/api_keys/*` (except `generate_web3_key`), `/billing/*` (except the retired `/billing/usage`), `/characters/*`, `/video/{queue,retrieve,complete}` | Bearer only (a `SIGN-IN-WITH-X` header alone gets `401` `X402_NOT_ACCEPTED`) |
+| Inference: chat, responses, embeddings, decisions, image, audio (speech, transcriptions, voices, queue/retrieve/complete), augment, `POST /crypto/rpc/{network}` | Bearer **or** SIWX |
+| `/api_keys/*` (except `generate_web3_key`), `/billing/*` (except the retired `/billing/usage`), `/characters/*`, `/video/{queue,retrieve,complete}`, `/audio/voice-changer/{queue,retrieve,complete}` | Bearer only (a `SIGN-IN-WITH-X` header alone gets `401` `X402_NOT_ACCEPTED`) |
 | `/x402/balance/{wallet}`, `/x402/transactions/{wallet}` | SIWX only (signer must own the wallet) |
 | `/models*`, `/image/styles`, `/video/quote` (except upscale models such as `topaz-video-upscale`: Bearer key required), `/audio/quote`, `/audio/voice-changer/quote`, `/crypto/rpc/networks`, `/tee/attestation`, `/tee/signature`, `/api_keys/generate_web3_key`, `POST /x402/top-up` | No auth needed |
 

@@ -18,8 +18,8 @@ Venice declares two auth schemes in its OpenAPI spec: `BearerAuth` (API key) and
 
 | Endpoints | Bearer key | SIWX wallet |
 |---|---|---|
-| Inference: `/chat/completions`, `/responses`, `/embeddings`, `/decisions` (+ `/systemone`), `/image/*` (generate, edit, multi-edit, upscale, background-remove), `/images/generations`, `/audio/speech`, `/audio/transcriptions`, `/audio/voices`, `/audio/{queue,retrieve,complete}`, `/audio/voice-changer/{queue,retrieve,complete}`, `/augment/*`, `POST /crypto/rpc/{network}` | yes | yes |
-| `/api_keys*` (except `generate_web3_key`), `/billing/*` (except the retired `/billing/usage`, which answers `410` without auth), `/characters*`, `/video/{queue,retrieve,complete}` | yes | no - a SIWX header alone gets `401` `X402_NOT_ACCEPTED` |
+| Inference: `/chat/completions`, `/responses`, `/embeddings`, `/decisions` (+ `/systemone`), `/image/*` (generate, edit, multi-edit, upscale, background-remove), `/images/generations`, `/audio/speech`, `/audio/transcriptions`, `/audio/voices`, `/audio/{queue,retrieve,complete}`, `/augment/*`, `POST /crypto/rpc/{network}` | yes | yes |
+| `/api_keys*` (except `generate_web3_key`), `/billing/*` (except the retired `/billing/usage`, which answers `410` without auth), `/characters*`, `/video/{queue,retrieve,complete}`, `/audio/voice-changer/{queue,retrieve,complete}` | yes | no - a SIWX header alone gets `401` `X402_NOT_ACCEPTED` |
 | `GET /x402/balance/{wallet}`, `GET /x402/transactions/{wallet}` | no | yes - signer must be `{wallet}` (else `403`) |
 | `POST /x402/top-up` | - | payment header (see below) |
 | `/models*`, `/image/styles`, `/video/quote` (except upscale models: Bearer key required), `/audio/quote`, `/audio/voice-changer/quote`, `/crypto/rpc/networks`, `/tee/*`, `/api_keys/generate_web3_key` | not required | not required |
