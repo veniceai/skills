@@ -174,10 +174,10 @@ Walk top-down. Stop at the first rule that applies.
 
 When the prompt maps cleanly to a named trait, skip the matrix and resolve the trait from the snapshot's `traits` block (sourced from `GET /models/traits?type=text`). Trait names also work directly as the `model` value in a request.
 
-| Trait | Use for | Resolves to (2026-10-02) |
+| Trait | Use for | Resolves to (2026-11-20) |
 |---|---|---|
-| `default` | Generic chat / catch-all. | `zai-org-glm-5-2` |
-| `function_calling_default` | Agent loops, tool use. | `zai-org-glm-5-2` |
+| `default` | Generic chat / catch-all. | `deepseek-v4-1-flash-1017-uncensored` |
+| `function_calling_default` | Agent loops, tool use. | `deepseek-v4-1-flash-1017-uncensored` |
 | `default_reasoning` | "Think step by step" without specifying a model. | `kimi-k3` |
 | `default_code` | Code generation / refactor / review. | `deepseek-v4-pro-0813` |
 | `default_vision` | Vision input, no other special needs. | `qwen-3-8-27b` |

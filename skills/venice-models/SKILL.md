@@ -60,7 +60,7 @@ curl "https://api.venice.ai/api/v1/models?type=text"
         "privacy": "private",
         "modelSource": "https://huggingface.co/zai-org/GLM-5.2",
         "offline": false,
-        "traits": ["default", "function_calling_default"],
+        "traits": [],
         "capabilities": { "supportsReasoning": true, "reasoningEffortOptions": ["none", "high", "max"], "…": "…" },
         "pricing": {
           "input":       { "usd": 1.4,  "diem": 1.4 },
@@ -159,8 +159,9 @@ curl "https://api.venice.ai/api/v1/models/traits?type=text"
   "object": "list",
   "type": "text",
   "data": {
-    "default": "zai-org-glm-5-2",
-    "function_calling_default": "zai-org-glm-5-2",
+    "app_default": "deepseek-v4-1-flash-1017-uncensored",
+    "default": "deepseek-v4-1-flash-1017-uncensored",
+    "function_calling_default": "deepseek-v4-1-flash-1017-uncensored",
     "default_reasoning": "kimi-k3",
     "default_code": "deepseek-v4-pro-0813",
     "default_vision": "qwen-3-8-27b",
@@ -170,7 +171,7 @@ curl "https://api.venice.ai/api/v1/models/traits?type=text"
 }
 ```
 
-Possible trait keys: `default`, `fastest`, `most_uncensored`, `eliza-default` (any type), `default_code`, `default_reasoning`, `default_vision`, `function_calling_default`, `most_intelligent` (text), `highest_quality` (image). A key only appears while some model holds it - `fastest` is currently unassigned for text. Today only `text` and `image` (and the `all` / `code` filters built from them) return non-empty maps. `?type=all` merges every type into one map, so keys shared across types collide - e.g. `default` resolves to an image model there. The values above are a snapshot; resolve them at runtime.
+Possible trait keys: `default`, `fastest`, `most_uncensored`, `eliza-default` (any type), `app_default`, `default_code`, `default_reasoning`, `default_vision`, `function_calling_default`, `most_intelligent` (text), `highest_quality` (image). `app_default` is the model the Venice chat app presents as its default, and at most one model holds it. A key only appears while some model holds it - `fastest` is currently unassigned for text. Today only `text` and `image` (and the `all` / `code` filters built from them) return non-empty maps. `?type=all` merges every type into one map, so keys shared across types collide - e.g. `default` resolves to an image model there. The values above are a snapshot; resolve them at runtime.
 
 A trait name can also be sent directly as `model` (e.g. `"model": "default_reasoning"`) and Venice resolves it per request.
 
