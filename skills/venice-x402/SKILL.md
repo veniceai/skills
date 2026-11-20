@@ -26,7 +26,7 @@ Send the canonical name in new code; the others exist so older integrations keep
 | Payment requirements (response) | `PAYMENT-REQUIRED` | — |
 | Settlement result (response) | `PAYMENT-RESPONSE` | — |
 
-A payment header is accepted **only** on `POST /x402/top-up`. Sending one to an inference route (or `/crypto/rpc/*`) returns `400` `PAYMENT_HEADER_NOT_ACCEPTED` — top up first, then authenticate inference with `SIGN-IN-WITH-X`.
+A payment header is accepted **only** on `POST /x402/top-up`. Sending one to an inference route (or `/crypto/rpc/*`) returns `400` `PAYMENT_HEADER_NOT_ACCEPTED` — top up first, then authenticate inference with `SIGN-IN-WITH-X`. On Bearer-only routes, which take no wallet auth, it gets `401` `X402_NOT_ACCEPTED` instead.
 
 ## Payment safety
 
@@ -150,8 +150,9 @@ The settlement result is also returned base64-encoded in the `PAYMENT-RESPONSE` 
 
 ### 3. Call inference with `SIGN-IN-WITH-X`
 
-Send a fresh SIWX proof for the wallet on each request. Venice debits the wallet's credit balance for each request — after it is served for most endpoints. Queued video / audio jobs are checked against the quote at queue time and charged once the provider accepts the job (Seed Audio on completion); failed jobs are refunded.
+Send a fresh SIWX proof for the wallet on each request. Venice debits the wallet's credit balance for each request — after it is served for most endpoints. Queued audio jobs are checked against the quote at queue time and charged once the provider accepts the job (Seed Audio on completion); failed jobs are refunded.
 
+- Video (`/video/{queue,retrieve,complete}`) and voice changer (`/audio/voice-changer/{queue,retrieve,complete}`) don't currently accept SIWX: a SIWX-only request gets `401` `X402_NOT_ACCEPTED`. Call them with a Bearer API key; [`venice-auth`](../venice-auth/SKILL.md#which-endpoints-accept-what) lists every route's auth.
 - A wallet needs at least **$0.10** of credit to be admitted.
 - An EVM wallet that is linked to a Venice account with staked DIEM spends that **DIEM first**; the USDC credit balance is used only when no DIEM is available. While DIEM remains, the request is billed to the linked account, not the wallet's credit, so a `402` in that state is not fixed by `/x402/top-up` — wait for the next epoch or fund the linked account.
 - At most **5 concurrent requests per wallet**; the 6th gets `429` `X402_CONCURRENCY_LIMIT`.
@@ -267,7 +268,7 @@ Entries are newest first. Query params: `limit` 1–100 (default 50), `offset` �
 |---|---|---|
 | `TOP_UP` | positive | A `/x402/top-up` settlement (or a manual credit by Venice support). |
 | `CHARGE` | negative | Inference debit. `requestId` / `modelId` link back to the call. |
-| `REFUND` | positive | Refund of a failed request's charges (e.g. a prepaid video / audio / voice-changer job that failed). |
+| `REFUND` | positive | Refund of a failed request's charges (e.g. a prepaid audio job that failed). |
 
 - One request can produce **several** `CHARGE` rows with the same `requestId` — e.g. the model charge plus an add-on such as web search — distinguished by `modelId`. Sum them per `requestId` for the request's cost.
 - A `REFUND` is one row per request that returns the **sum** of that request's charges. Its `modelId` is the charged model when there was a single charge, and `null` when several were refunded together.
@@ -296,7 +297,7 @@ Body shapes differ by route:
 | Code | Meaning |
 |---|---|
 | `400` | Top-up validation: `INVALID_PAYMENT_FORMAT`, `INVALID_PAYMENT`, `UNSUPPORTED_NETWORK`, `INVALID_PAYMENT_RECIPIENT`, `UNSUPPORTED_TOKEN`, `UNSUPPORTED_SCHEME` (only `exact`), `INVALID_AMOUNT`, `INVALID_PAYMENT_PAYER`, `AMOUNT_TOO_LOW` (< $5), `AMOUNT_TOO_HIGH` (> $10,000), `PAYMENT_VERIFICATION_FAILED`. Also an invalid wallet path param or query, and `PAYMENT_HEADER_NOT_ACCEPTED` when a payment header is sent to a non-top-up route. |
-| `401` | `SIGN-IN-WITH-X` is **present** but invalid, or the wallet is not allowed. On inference routes the body names the reason (`X402_SIGN_IN_*`, or `X402_USER_NOT_ALLOWED` when the Venice account of the wallet is banned or deleted, or the wallet's x402 credit account belongs to a different user). `/x402/balance` and `/x402/transactions` return `X402SignInError` with the same `code` family (optional `invalidReason` is the `invalid_siwx_*` spec code). A **missing** header on those two routes is `402`, not `401`. `POST /x402/top-up` `401` is `{ "error": "X402_USER_NOT_ALLOWED", "message": "..." }` — the payment is not settled. |
+| `401` | `SIGN-IN-WITH-X` is **present** but invalid, or the wallet is not allowed. On inference routes the body names the reason (`X402_SIGN_IN_*`, or `X402_USER_NOT_ALLOWED` when the Venice account of the wallet is banned or deleted, or the wallet's x402 credit account belongs to a different user). `/x402/balance` and `/x402/transactions` return `X402SignInError` with the same `code` family (optional `invalidReason` is the `invalid_siwx_*` spec code). A **missing** header on those two routes is `402`, not `401`. `POST /x402/top-up` `401` is `{ "error": "X402_USER_NOT_ALLOWED", "message": "..." }` — the payment is not settled. A SIWX or payment header with no API key on a Bearer-only route gets `X402_NOT_ACCEPTED`. |
 | `402` | Discovery on `/x402/top-up` (no payment header); `/x402/balance` and `/x402/transactions` with **no** SIWX header; inference below $0.10; or `SETTLEMENT_FAILED` on top-up (funds were not transferred — safe to retry). |
 | `403` | SIWX wallet ≠ path wallet. |
 | `409` | `PAYMENT_IN_PROGRESS` — the same payment is settling; retry shortly. |

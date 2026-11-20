@@ -15,7 +15,7 @@ Video is **asynchronous** — like audio music. Four live endpoints plus one ret
 | `POST /video/complete` | Cleanup of the finished media. Currently rejects `queue_id`s from `/video/queue`, so use `delete_media_on_completion` on retrieve instead (see [step 4](#4-clean-up-with-videocomplete)). |
 | `POST /video/transcriptions` | **Retired — always returns `410`.** See [below](#videotranscriptions-retired). |
 
-`/video/queue`, `/video/retrieve`, and `/video/complete` accept a Bearer API key or an x402 `SIGN-IN-WITH-X` wallet header (see [`venice-x402`](../venice-x402/SKILL.md)).
+`/video/queue`, `/video/retrieve`, and `/video/complete` take a Bearer API key only; they don't currently accept x402 wallets. A `SIGN-IN-WITH-X` header alone gets `401` `X402_NOT_ACCEPTED`. A request with no credentials still gets the `402` x402 discovery challenge: answer it with a Bearer key, not a wallet signature. See [`venice-auth`](../venice-auth/SKILL.md).
 
 ## Use when
 
@@ -58,7 +58,7 @@ Response: `{"quote": 0.55}` (USD).
 - Required: `model`, and `duration` for models with fixed durations.
 - `resolution` and `aspect_ratio` fall back to the model default when omitted.
 - The quote endpoint **discards** fields a model doesn't use (e.g. `audio` on a model with `audio_configurable: false`, `aspect_ratio` on a model with no `aspect_ratios`, unknown keys) — `/video/queue` rejects them. A successful quote does not prove the queue body is valid.
-- **Upscale models** (`topaz-video-upscale`): quote requires a Bearer API key (`403` without one, so x402 wallets can't quote them — queue directly and rely on the `402` balance check) and `video_url` — Venice fetches the file to detect duration, FPS, and height (`400` if it can't read it). `duration` is ignored. Pass `upscale_factor` (`1` / `2` / `4`) to price the factor you will queue; `resolution: "1x"` / `"2x"` / `"4x"` is a deprecated alias.
+- **Upscale models** (`topaz-video-upscale`): quote requires a Bearer API key (`403` without one) and `video_url` — Venice fetches the file to detect duration, FPS, and height (`400` if it can't read it). `duration` is ignored. Pass `upscale_factor` (`1` / `2` / `4`) to price the factor you will queue; `resolution: "1x"` / `"2x"` / `"4x"` is a deprecated alias.
 - **Video-to-video models** (e.g. `wan-2-7-video-to-video`): `video_url` is required; duration is detected from the file.
 - **R2V models with reference-video support** (Seedance 2.x, MiniMax H3 / H3 Max, Wan 3.0 R2V, …): pass `reference_video_total_duration` (aggregate seconds of all reference videos, capped at the model's aggregate limit — e.g. 15 for Seedance 2.0 / H3 / Wan 3.0, 30 for Seedance 2.5; over the cap is `400`). Reference video is billed, so omitting it returns the no-reference price, which under-quotes. `reference_image_count` (≤ the model's reference-image cap, else `400`) prices models billed per input image; omitted, one image is billed.
 
@@ -81,7 +81,7 @@ curl https://api.venice.ai/api/v1/video/queue \
 
 Response: `{ "model": "...", "queue_id": "uuid" }`, plus `download_url` for VPS-backed models.
 
-- Validation and the balance check happen before the `200`; API-key callers are also charged then (x402 wallet callers are charged once the job is accepted). Content screening and the provider submit run **after** the response, so those failures are reported on `/video/retrieve`, not here. Failures are normally refunded (`credits_refunded` in the error body reports the outcome where present), with one exception: the Runway models (`runway-gen4-5`, `runway-gen4-5-text`, `runway-gen4-turbo`) keep the charge when the provider rejects the request on content policy (`credits_refunded: false`).
+- Validation and the balance check happen before the `200`, and the charge is taken then too. Content screening and the provider submit run **after** the response, so those failures are reported on `/video/retrieve`, not here. Failures are normally refunded (`credits_refunded` in the error body reports the outcome where present), with one exception: the Runway models (`runway-gen4-5`, `runway-gen4-5-text`, `runway-gen4-turbo`) keep the charge when the provider rejects the request on content policy (`credits_refunded: false`).
 - `download_url` is returned for **VPS-backed** models — currently every Grok Imagine video model, including the `*-private` ids and `grok-imagine-1-5-lite-text-to-video` / `grok-imagine-1-5-lite-image-to-video`. Decide by whether the queue response contains `download_url`, not by the model id. When it does, `/video/retrieve` returns JSON status only; `GET` the `download_url` (no auth header) once status is `COMPLETED`. Valid up to 24 h.
 
 ### 3. Poll with `/video/retrieve`
@@ -298,8 +298,8 @@ async function waitForVideo(model: string, queueId: string, downloadUrl?: string
 | Code | Meaning |
 |---|---|
 | `400` | Invalid params (unsupported field for this model, bad enum, missing `prompt` / `image_url` / `video_url`, over-limit arrays, blocked or unreadable media URL, corrupted image). On `/video/retrieve`: `"Request ID is invalid."` for an unknown or expired `queue_id`. On `/video/complete`: the same message currently comes back for every `queue_id` issued by `/video/queue` — clean up with `delete_media_on_completion: true` instead (see [step 4](#4-clean-up-with-videocomplete)). |
-| `401` | Authentication failed. |
-| `402` | Insufficient balance or the API key's spend limit (checked on `/video/queue` before the charge). A wallet below the $0.10 floor gets the x402 `PAYMENT_REQUIRED` body and `PAYMENT-REQUIRED` header; a wallet above the floor but below this job's quote gets the plain `{"error":"Insufficient USD or Diem balance…"}` body with no header — top up via `/x402/top-up` and retry. |
+| `401` | Authentication failed: an invalid API key. A `SIGN-IN-WITH-X` or x402 payment header without an API key gets `X402_NOT_ACCEPTED` instead (x402 isn't accepted here). |
+| `402` | Insufficient balance or the API key's spend limit (checked on `/video/queue` before the charge). A request with no credentials also gets `402`, with the x402 discovery challenge; send a Bearer key. |
 | `403` | Model unavailable in your region, not permitted by the API key's model-privacy setting, or an unauthenticated upscale quote. |
 | `404` | Model not found (any video endpoint). On `/video/retrieve`: media expired or already deleted. |
 | `409` | `/video/queue` only, unlisted face-enabled Seedance models: `{"error":{"code":"needs_consent",...},"consent_flow":"seedance","face_media_roles":[...],"consent":{"consent_version","policy_text"},"docs_url"}`. |

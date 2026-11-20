@@ -1,20 +1,20 @@
 ---
 name: venice-audio-voice-changer
-description: Async speech-to-speech voice conversion via Venice — re-record a source recording in a different voice while keeping delivery and timing. Covers POST /audio/voice-changer/quote (unauthenticated), /queue (multipart file or JSON audio_url), /retrieve and /complete, how to discover voice-changer models (model_spec.voice_changer on /models?type=music), accepted formats, the source-length cap, whole-minute billing, refunds, and what each endpoint refuses. Note that no voice-changer model is currently open to regular API keys.
+description: Async speech-to-speech voice conversion via Venice — re-record a source recording in a different voice while keeping delivery and timing. Covers POST /audio/voice-changer/quote (unauthenticated), /queue (multipart file or JSON audio_url), /retrieve and /complete, how to discover voice-changer models (model_spec.voice_changer on /models?type=music), accepted formats, the source-length cap, whole-minute billing, refunds, and what each endpoint refuses.
 ---
 
 # Venice Voice Changer (`/audio/voice-changer/*`)
 
 Speech-to-speech conversion: upload a recording, get the same speech back in a different voice, with the original pacing, emotion and timing preserved. It's asynchronous, with its own quote → queue → retrieve → complete family (parallel to, but separate from, [`venice-audio-music`](../venice-audio-music/SKILL.md)).
 
-> **Availability (checked 2026-09-30):** the endpoints are in the public API spec, but the only voice-changer model, `elevenlabs-voice-changer`, is not yet open to regular API keys. It is not listed by `GET /models`, and regular keys (or no key) get `404 "Specified model not found"` from every endpoint below. Before using this skill, confirm that a model with `model_spec.voice_changer: true` shows up in `GET /models?type=music` for your key; if none does, the feature isn't available to you.
-
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | `POST` | `/api/v1/audio/voice-changer/quote` | **None required** (key optional) | Price for a source of N seconds. |
-| `POST` | `/api/v1/audio/voice-changer/queue` | Bearer key or x402 (SIWX) | `multipart/form-data` (`file`) **or** JSON (`audio_url`). Charges and enqueues. 40 req/min per user. |
-| `POST` | `/api/v1/audio/voice-changer/retrieve` | Bearer key or x402 (SIWX) | Status JSON or the converted audio. 120 req/min per user. |
-| `POST` | `/api/v1/audio/voice-changer/complete` | Bearer key or x402 (SIWX) | Release the provider-held media. |
+| `POST` | `/api/v1/audio/voice-changer/queue` | Bearer key | `multipart/form-data` (`file`) **or** JSON (`audio_url`). Charges and enqueues. 40 req/min per user. |
+| `POST` | `/api/v1/audio/voice-changer/retrieve` | Bearer key | Status JSON or the converted audio. 120 req/min per user. |
+| `POST` | `/api/v1/audio/voice-changer/complete` | Bearer key | Release the provider-held media. |
+
+Queue, retrieve and complete don't currently accept x402 wallets. A `SIGN-IN-WITH-X` header alone gets `401` `X402_NOT_ACCEPTED`. A request with no credentials still gets the `402` x402 discovery challenge: answer it with a Bearer key, not a wallet signature. See [`venice-auth`](../venice-auth/SKILL.md).
 
 Each endpoint only accepts voice-changer models (`400` otherwise, naming the endpoint to use instead), and `/audio/quote`, `/audio/queue`, `/audio/retrieve`, `/audio/complete` refuse voice-changer models the same way.
 
@@ -173,10 +173,10 @@ async function convert(path: string, voice: string) {
 | Code | Meaning |
 |---|---|
 | `400` | Strict-body error; both or neither of `file` / `audio_url`; `audio_url` unreachable or unusable; source not in `accepted_audio_formats`, has a video track, or its length can't be read; voice rejected by the provider (at queue, or later on retrieve — then refunded); non-voice-changer model; unknown / foreign `queue_id` (`"Request ID is invalid."`). |
-| `401` | Authentication failed. |
-| `402` | Insufficient balance (checked against the price for the measured length). Wallet callers above the $0.10 floor but below the price get the plain `{"error":"Insufficient USD or Diem balance…"}` body, not `PAYMENT_REQUIRED`. |
+| `401` | Authentication failed: an invalid API key. A `SIGN-IN-WITH-X` or x402 payment header without an API key gets `X402_NOT_ACCEPTED` instead (x402 isn't accepted here). |
+| `402` | Insufficient balance (checked against the price for the measured length). A request with no credentials also gets `402`, with the x402 discovery challenge; send a Bearer key. |
 | `403` | A `PRIVATE_ONLY` key calling an `anonymized` model, or region restriction. |
-| `404` | Model not found (today: every regular API key); on retrieve, media expired or already delivered. |
+| `404` | Model not found; on retrieve, media expired or already delivered. |
 | `413` | Uploaded file over 25 MB. |
 | `422` | Source longer than `max_source_audio_duration_seconds` (at queue, not charged); or, on retrieve, a provider content-policy rejection (refunded). |
 | `429` | Rate limited (40/min queue, 120/min retrieve, per user). |

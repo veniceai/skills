@@ -21,7 +21,7 @@ Three endpoints, all tagged **Preview** (may change):
 | `GET /characters/{slug}` | Fetch one character. |
 | `GET /characters/{slug}/reviews` | Paginated public reviews. |
 
-**Auth: Bearer API key only.** These routes do not accept x402 / `SIGN-IN-WITH-X` (a SIWX-only request gets `401`). A request with no `Authorization` header gets a `402` x402 discovery challenge rather than `401`. There is no unauthenticated access. See [`venice-auth`](../venice-auth/SKILL.md).
+**Auth: Bearer API key only.** These routes do not accept x402 / `SIGN-IN-WITH-X` (a SIWX-only request gets `401` `X402_NOT_ACCEPTED`). A request with no `Authorization` header gets a `402` x402 discovery challenge rather than `401`. There is no unauthenticated access. See [`venice-auth`](../venice-auth/SKILL.md).
 
 ## `GET /characters`
 
@@ -196,7 +196,7 @@ await chat({
 | Code | Meaning |
 |---|---|
 | `400` | Bad query params (e.g. `limit > 100`, `pageSize > 100`, unknown `sortBy`, `search` > 200 chars, > 20 array items). |
-| `401` | Unknown, expired or revoked API key, or SIWX-only auth (not supported here). |
+| `401` | Unknown, expired or revoked API key, or SIWX-only auth (`X402_NOT_ACCEPTED`; not supported here). |
 | `402` | No `Authorization` header — x402 discovery challenge. Send a Bearer key. |
 | `404` | Unknown / unapproved / hidden slug (also adult characters when the account's mature filter is on). |
 | `429` | Too many failed requests (the error-rate limiter). |
