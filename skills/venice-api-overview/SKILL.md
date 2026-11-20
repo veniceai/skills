@@ -35,10 +35,10 @@ Not every endpoint accepts both:
 
 | Endpoints | Accepts |
 |---|---|
-| All inference: chat, responses, embeddings, decisions, image, audio (speech, transcriptions, voices, queue/retrieve/complete, voice-changer queue/retrieve/complete), video queue/retrieve/complete, augment, `POST /crypto/rpc/{network}` | Bearer **or** SIWX |
-| `/api_keys/*` (except `generate_web3_key`), `/billing/*` (except the retired `/billing/usage`), `/characters/*` | Bearer only (a `SIGN-IN-WITH-X` header alone gets `401` `X402_NOT_ACCEPTED`) |
+| Inference: chat, responses, embeddings, decisions, image, audio (speech, transcriptions, voices, queue/retrieve/complete, voice-changer queue/retrieve/complete), augment, `POST /crypto/rpc/{network}` | Bearer **or** SIWX |
+| `/api_keys/*` (except `generate_web3_key`), `/billing/*` (except the retired `/billing/usage`), `/characters/*`, `/video/{queue,retrieve,complete}` | Bearer only (a `SIGN-IN-WITH-X` header alone gets `401` `X402_NOT_ACCEPTED`) |
 | `/x402/balance/{wallet}`, `/x402/transactions/{wallet}` | SIWX only (signer must own the wallet) |
-| `/models*`, `/image/styles`, `/video/quote` (except upscale models such as `topaz-video-upscale`: Bearer key required, so wallets can't quote them), `/audio/quote`, `/audio/voice-changer/quote`, `/crypto/rpc/networks`, `/tee/attestation`, `/tee/signature`, `/api_keys/generate_web3_key`, `POST /x402/top-up` | No auth needed |
+| `/models*`, `/image/styles`, `/video/quote` (except upscale models such as `topaz-video-upscale`: Bearer key required), `/audio/quote`, `/audio/voice-changer/quote`, `/crypto/rpc/networks`, `/tee/attestation`, `/tee/signature`, `/api_keys/generate_web3_key`, `POST /x402/top-up` | No auth needed |
 
 On any route that needs credentials - Bearer-only ones included - a request with **no** `Authorization` and no `SIGN-IN-WITH-X` header gets `402` with an x402 discovery body (payment options + SIWX challenge + `authOptions`), not `401`. See [`venice-auth`](../venice-auth/SKILL.md).
 

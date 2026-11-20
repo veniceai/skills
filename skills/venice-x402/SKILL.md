@@ -150,7 +150,7 @@ The settlement result is also returned base64-encoded in the `PAYMENT-RESPONSE` 
 
 ### 3. Call inference with `SIGN-IN-WITH-X`
 
-Send a fresh SIWX proof for the wallet on each request. Venice debits the wallet's credit balance for each request — after it is served for most endpoints. Queued video / audio jobs are checked against the quote at queue time and charged once the provider accepts the job (Seed Audio on completion); failed jobs are refunded.
+Send a fresh SIWX proof for the wallet on each request. Venice debits the wallet's credit balance for each request — after it is served for most endpoints. Queued audio jobs are checked against the quote at queue time and charged once the provider accepts the job (Seed Audio on completion); failed jobs are refunded.
 
 - A wallet needs at least **$0.10** of credit to be admitted.
 - An EVM wallet that is linked to a Venice account with staked DIEM spends that **DIEM first**; the USDC credit balance is used only when no DIEM is available. While DIEM remains, the request is billed to the linked account, not the wallet's credit, so a `402` in that state is not fixed by `/x402/top-up` — wait for the next epoch or fund the linked account.
@@ -267,7 +267,7 @@ Entries are newest first. Query params: `limit` 1–100 (default 50), `offset` �
 |---|---|---|
 | `TOP_UP` | positive | A `/x402/top-up` settlement (or a manual credit by Venice support). |
 | `CHARGE` | negative | Inference debit. `requestId` / `modelId` link back to the call. |
-| `REFUND` | positive | Refund of a failed request's charges (e.g. a prepaid video / audio / voice-changer job that failed). |
+| `REFUND` | positive | Refund of a failed request's charges (e.g. a prepaid audio / voice-changer job that failed). |
 
 - One request can produce **several** `CHARGE` rows with the same `requestId` — e.g. the model charge plus an add-on such as web search — distinguished by `modelId`. Sum them per `requestId` for the request's cost.
 - A `REFUND` is one row per request that returns the **sum** of that request's charges. Its `modelId` is the charged model when there was a single charge, and `null` when several were refunded together.

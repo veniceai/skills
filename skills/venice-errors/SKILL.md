@@ -97,7 +97,7 @@ Check `credits_refunded`; optionally re-queue on `recommended_model`.
 
 ### 8. x402 `402` bodies
 
-A `402` comes in two forms. Both also set the `PAYMENT-REQUIRED` header. The no-credentials form is returned on every route that needs credentials, including Bearer-only routes (`/api_keys*`, `/billing/*`, `/characters*`), where its payment options don't apply.
+A `402` comes in two forms. Both also set the `PAYMENT-REQUIRED` header. The no-credentials form is returned on every route that needs credentials, including Bearer-only routes (`/api_keys*`, `/billing/*`, `/characters*`, `/video/{queue,retrieve,complete}`), where its payment options don't apply.
 
 **No credentials at all** - x402 v2 discovery (not `401`):
 
@@ -145,7 +145,7 @@ A `402` comes in two forms. Both also set the `PAYMENT-REQUIRED` header. The no-
 
 `topUpInstructions` describes the Base rail only; read `accepts[]` from `POST /x402/top-up` to pay on Solana (and send `PAYMENT-SIGNATURE`, the canonical header - `X-402-Payment` / `X-PAYMENT` still work). The `PAYMENT-REQUIRED` header is the base64 x402 `paymentRequired` object (`x402Version`, `error`, `resource`, `accepts[]`, `extensions`), not the body. See [`venice-x402`](../venice-x402/SKILL.md).
 
-API-key `402`s are plain: `{ "error": "Insufficient USD or Diem balance to complete request. Visit https://venice.ai/settings/api to add credits." }`, or the per-key spend-limit variants ("API key DIEM spend limit exceeded…" / "API key USD spend limit exceeded…"). A wallet can get the same plain "Insufficient USD or Diem balance…" body when its credit clears the $0.10 floor but not the quoted price of this request (e.g. `/video/queue`, `/audio/queue`) - top up and retry.
+API-key `402`s are plain: `{ "error": "Insufficient USD or Diem balance to complete request. Visit https://venice.ai/settings/api to add credits." }`, or the per-key spend-limit variants ("API key DIEM spend limit exceeded…" / "API key USD spend limit exceeded…"). A wallet can get the same plain "Insufficient USD or Diem balance…" body when its credit clears the $0.10 floor but not the quoted price of this request (e.g. `/audio/queue`) - top up and retry.
 
 ### 9. x402 sign-in failures (`401`)
 
@@ -213,7 +213,7 @@ The unsupported-feature bucket uses the same wording with `> 200`. So a client t
 ### Retry with modification
 
 - `402` with `code: "PAYMENT_REQUIRED"` - top up via `/x402/top-up` within the user's spend cap (see [`venice-x402`](../venice-x402/SKILL.md)), then retry.
-- `402` with `x402Version` (no credentials) - add `Authorization: Bearer …`, or `SIGN-IN-WITH-X` on routes that accept wallets. Bearer-only routes (`/api_keys*`, `/billing/*`, `/characters*`) reject SIWX with `401` `X402_NOT_ACCEPTED`; send a Bearer key there.
+- `402` with `x402Version` (no credentials) - add `Authorization: Bearer …`, or `SIGN-IN-WITH-X` on routes that accept wallets. Bearer-only routes (`/api_keys*`, `/billing/*`, `/characters*`, `/video/{queue,retrieve,complete}`) reject SIWX with `401` `X402_NOT_ACCEPTED`; send a Bearer key there.
 - Any retry with wallet auth needs a **newly signed** `SIGN-IN-WITH-X` header - each nonce is accepted once, so re-sending the original header fails with `X402_SIGN_IN_NONCE_REUSED`.
 - `402` on an API key - surface to the user.
 - `422` with `suggested_prompt` - one retry with the safer prompt.
