@@ -34,6 +34,7 @@ Every field below is model-specific. Read the model's constraints from `GET /mod
 - `constraints.audio_configurable` — only then may you send `audio`.
 - `constraints.audio_input` — only then may you send `audio_url`.
 - `constraints.prompt_character_limit` — present when the model sets its own limit; otherwise the limit is 2500 characters.
+- `constraints.supportsHdr` + `constraints.hdrResolutions` (also published as top-level `capabilities.supportsHdr` and `settings.hdrResolutions`) — only then may you send `hdr: true`, and only at a listed resolution.
 
 The request schema is **strict per model**: a field the model does not support is a `400` (e.g. `"This model does not support aspect_ratio"`), not silently ignored.
 
@@ -57,6 +58,7 @@ Response: `{"quote": 0.55}` (USD).
 
 - Required: `model`, and `duration` for models with fixed durations.
 - `resolution` and `aspect_ratio` fall back to the model default when omitted.
+- `hdr: true` prices the HDR surcharge (per output second, not input seconds). Quote it only for models that publish `supportsHdr`, at a resolution in `hdrResolutions`; otherwise `/video/queue` returns `400`. The HDR rate is not on `GET /models` — this quote is the price.
 - The quote endpoint **discards** fields a model doesn't use (e.g. `audio` on a model with `audio_configurable: false`, `aspect_ratio` on a model with no `aspect_ratios`, unknown keys) — `/video/queue` rejects them. A successful quote does not prove the queue body is valid.
 - **Upscale models** (`topaz-video-upscale`): quote requires a Bearer API key (`403` without one, so x402 wallets can't quote them — queue directly and rely on the `402` balance check) and `video_url` — Venice fetches the file to detect duration, FPS, and height (`400` if it can't read it). `duration` is ignored. Pass `upscale_factor` (`1` / `2` / `4`) to price the factor you will queue; `resolution: "1x"` / `"2x"` / `"4x"` is a deprecated alias.
 - **Video-to-video models** (e.g. `wan-2-7-video-to-video`): `video_url` is required; duration is detected from the file.
@@ -124,6 +126,7 @@ Body: `model` + `queue_id` only. Response: `200` `{"success": true}`, or `{"succ
 | `duration` | string | Required, from `constraints.durations` (values span `1s`–`30s`). Upscale and video-to-video models: omit it (server detects the source length) or send seconds as a string such as `"12.5"` (≤ 300) — the literal `"Auto"` is rejected. `seedance-2-5-reference-to-video-basic` also accepts `"-1"` / `"auto"` (match the source clip). |
 | `aspect_ratio` | string | **Required** when the model lists `aspect_ratios`; rejected when the list is empty (image-driven models take the ratio from the input). The Seedance 2.0 R2V `-basic` models (standard / fast / mini) and `seedance-2-5-reference-to-video-basic` also accept `adaptive` / `auto` (match the source clip). |
 | `resolution` | string | From `constraints.resolutions`; defaults to the model default. Rejected when the model lists no resolutions, and on upscale models — use `upscale_factor`. |
+| `hdr` | bool | Optional, default `false`. `true` requests HDR. `400` when the model does not publish `supportsHdr` or the resolution is not in `hdrResolutions`. Price it with `/video/quote` — the surcharge is per output second and is not applied to input seconds. |
 | `upscale_factor` | integer `1` / `2` / `4` | Upscale models only. `1` = enhancement only. Defaults to the model default (`2` for `topaz-video-upscale`). |
 | `audio` | bool | Only when `audio_configurable: true`; default `true`. |
 | `image_url` | URL or `data:` URL | Start frame for image-to-video. Rejected on text-to-video models. |
@@ -297,7 +300,7 @@ async function waitForVideo(model: string, queueId: string, downloadUrl?: string
 
 | Code | Meaning |
 |---|---|
-| `400` | Invalid params (unsupported field for this model, bad enum, missing `prompt` / `image_url` / `video_url`, over-limit arrays, blocked or unreadable media URL, corrupted image). On `/video/retrieve`: `"Request ID is invalid."` for an unknown or expired `queue_id`. On `/video/complete`: the same message currently comes back for every `queue_id` issued by `/video/queue` — clean up with `delete_media_on_completion: true` instead (see [step 4](#4-clean-up-with-videocomplete)). |
+| `400` | Invalid params (unsupported field for this model, bad enum, missing `prompt` / `image_url` / `video_url`, over-limit arrays, blocked or unreadable media URL, corrupted image, `hdr: true` on a model without `supportsHdr` or at a resolution outside `hdrResolutions`). On `/video/retrieve`: `"Request ID is invalid."` for an unknown or expired `queue_id`. On `/video/complete`: the same message currently comes back for every `queue_id` issued by `/video/queue` — clean up with `delete_media_on_completion: true` instead (see [step 4](#4-clean-up-with-videocomplete)). |
 | `401` | Authentication failed. |
 | `402` | Insufficient balance or the API key's spend limit (checked on `/video/queue` before the charge). A wallet below the $0.10 floor gets the x402 `PAYMENT_REQUIRED` body and `PAYMENT-REQUIRED` header; a wallet above the floor but below this job's quote gets the plain `{"error":"Insufficient USD or Diem balance…"}` body with no header — top up via `/x402/top-up` and retry. |
 | `403` | Model unavailable in your region, not permitted by the API key's model-privacy setting, or an unauthenticated upscale quote. |
@@ -325,4 +328,5 @@ See [`venice-errors`](../venice-errors/SKILL.md) for body shapes and retry strat
 - Seedance source-matched values: `aspect_ratio: "adaptive"` / `"auto"` works on the `-basic` Seedance 2.0 / 2.5 R2V models, `duration: "-1"` / `"auto"` only on `seedance-2-5-reference-to-video-basic`. Both require `reference_video_urls` on queue and `reference_video_total_duration` on quote. The `seedance-2-5-us-*-private` models don't support them (`adaptive` is `400`, `auto` is an ordinary ratio option there). Elsewhere `"auto"` is also just an ordinary aspect-ratio option (e.g. Flux 3).
 - MiniMax H3 and H3 Max reference-to-video models reject `image_url` / `end_image_url` combined with reference media, and count `audio_url` toward the reference-audio cap.
 - `data:` URLs count toward payload size; large base64 videos can trip `413` — prefer hosted URLs.
-- Prices are dynamic (resolution, duration, audio, reference media, promotions) — always quote; don't hard-code.
+- Prices are dynamic (resolution, duration, audio, HDR, reference media, promotions) — always quote; don't hard-code.
+- **`hdr: true` is model- and resolution-gated.** Check `GET /models?type=video` for `supportsHdr` and `hdrResolutions` (today those fields appear both under `model_spec.constraints` and as top-level `capabilities` / `settings`). Do not send it at `720p` on a model that only lists `1080p` / `4k` for HDR.
