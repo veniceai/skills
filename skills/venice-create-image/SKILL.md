@@ -46,7 +46,7 @@ Call `venice_list_models` with `type: "image"`. Each entry includes capabilities
 
 ### 4. Generate
 
-Call `venice_image_generate` with `prompt`, `model`, `aspect_ratio` (or `width`/`height`), and optionally `style_preset`, `negative_prompt`, `seed` and `variants`.
+Call `venice_image_generate` with `prompt`, `model`, `aspect_ratio` (or `width`/`height`), and optionally `style_preset`, `negative_prompt`, `seed` and `variants`. On models that list aspect ratios, `width`/`height` pick the nearest listed ratio and a 1K/2K/4K tier (long edge above 1536 → `2K`, above 3072 → `4K`); prefer the model's listed `aspect_ratio` / `resolution` when you already know them. Exact-canvas models still cap each side at 1280 before upscale.
 
 - `variants` (1-4) returns several options in one call. Each variant is billed as one image.
 - Only the first variant uses your `seed`. On models that honor `seed`, regenerating with the same `seed` and `variants: 1` reproduces a result. Some models ignore it, including GPT Image, Recraft, Nano Banana Pro and Grok Imagine.

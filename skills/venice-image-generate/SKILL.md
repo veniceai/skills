@@ -55,7 +55,7 @@ The request schema is **strict**: unknown fields are rejected with `400`.
 | `model` | string | — | **Required.** Image model ID from `GET /models?type=image`. Unknown IDs return `404` (with a suggestion); retired IDs return `404` naming the replacement when one exists. |
 | `prompt` | string | — | **Required.** Non-blank. Max `constraints.promptCharacterLimit` for the model (1,500 – 32,768 today). |
 | `negative_prompt` | string | — | What *not* to show. Same character cap as `prompt`. Only used by some models today (e.g. `venice-sd35`, `lustify-*`, `wai-Illustrious`, `qwen-image-2`, `qwen-image-2-pro`, `qwen-image-3`, `qwen-image-3-pro`, `wan-2-7-*`). Silently dropped everywhere else, including `z-image-turbo` and `chroma`. |
-| `width`, `height` | int | 1024, 1024 | ≤ 1280 each. Only used by pixel-sized models (no `constraints.aspectRatios`). Aspect-ratio models ignore them, and `qwen-image`, `qwen-image-3`, `qwen-image-3-pro` **reject** them with `400` — use `aspect_ratio`. |
+| `width`, `height` | int | 1024, 1024 | Schema max **4096** each (`exclusiveMinimum: 0`). On models that list `constraints.aspectRatios`, they select the nearest listed `aspect_ratio` and a resolution tier: long edge above 1536 → `2K`, above 3072 → `4K` (the highest offered tier at or below that, otherwise the model default). An explicit `aspect_ratio` or `resolution` overrides only its own value. On models that render an exact canvas (no `aspectRatios`), each side must be ≤ 1280 before any model upscale. |
 | `aspect_ratio` | string | model default | E.g. `"1:1"`, `"16:9"`, `"4:3"`. Send only values from the model's `constraints.aspectRatios`. `/image/generate` doesn't validate this field: most models fall back to `defaultAspectRatio`, but some pass it upstream and fail. |
 | `resolution` | string | model default | `"1K"`, `"2K"`, `"4K"`. Must be in the model's `constraints.resolutions` (otherwise `400`). Silently dropped for models with no `resolutions`. |
 | `quality` | `"low"`/`"medium"`/`"high"` | model default | Only for models with `constraints.qualities` (GPT Image 2 / 2.5, Ideogram V4.5, Grok Imagine 2.0). A value outside that list is `400`; ignored on other models. Changes the price — see `pricing.quality`. |
@@ -131,7 +131,7 @@ const b64 = res.data[0].b64_json
 |---|---|---|
 | `model` | string | Required in practice: omitting it (or sending `""`) returns `400 "model is required"`, even though the spec lists a `"default"` default. Unknown IDs (e.g. `dall-e-3`) silently fall back to Venice's default image model (`z-image-turbo`). |
 | `prompt` | string, 1–1500 chars | Required. 1500 is the cap here regardless of model. |
-| `size` | `auto` (default → 1024×1024), `256x256`, `512x512`, `1024x1024`, `1536x1024`, `1024x1536`, `1792x1024`, `1024x1792` | Mapped to width/height, so it only affects pixel-sized models; aspect-ratio models use their default aspect ratio. |
+| `size` | `auto` (default → 1024×1024), `256x256`, `512x512`, `1024x1024`, `1536x1024`, `1024x1536`, `1792x1024`, `1024x1792` | Mapped to `width`/`height`. On exact-canvas models those become the pixel size (each side still ≤ 1280 before upscale). On models that list aspect ratios, the mapped size selects the nearest ratio and a resolution tier the same way as `/image/generate`. |
 | `output_format` | `jpeg` / `png` / `webp` | Defaults to `png`. |
 | `response_format` | `b64_json` (default) / `url` | `url` returns a `data:` URL (not a hosted URL). |
 | `moderation` | `auto` (default, safe mode on) / `low` (safe mode off) | — |
@@ -166,7 +166,7 @@ curl "https://api.venice.ai/api/v1/models?type=image"
 Inspect each model's `model_spec`:
 
 - `constraints.promptCharacterLimit` — max prompt length (also applies to `negative_prompt`).
-- `constraints.aspectRatios[]` + `defaultAspectRatio` — present on aspect-ratio-driven models; use `aspect_ratio` instead of `width`/`height`.
+- `constraints.aspectRatios[]` + `defaultAspectRatio` — present on aspect-ratio-driven models. Prefer `aspect_ratio` (and `resolution` when listed). `width`/`height` are also accepted and map to the nearest listed ratio and a 1K/2K/4K tier (see the field table).
 - `constraints.resolutions[]` + `defaultResolution` — present when the model accepts `resolution`.
 - `constraints.qualities[]` + `defaultQuality` — present when the model accepts `quality`.
 - `constraints.steps.{default,max}` — step bounds. Every model lists them, but only a few use `steps` (see the field table).
@@ -206,6 +206,8 @@ On models that honor `seed` (e.g. `z-image-turbo`, `seedream-v4`, `nano-banana-2
 ```json
 {"model": "seedream-v5-pro", "prompt": "...", "aspect_ratio": "4:3", "resolution": "2K"}
 ```
+
+On those models, `width`/`height` are an alternative to `aspect_ratio` + `resolution`: the long edge picks the tier (above 1536 → `2K`, above 3072 → `4K`) and the pair picks the nearest listed ratio. An explicit `aspect_ratio` or `resolution` overrides only that field.
 
 ### Quality tier (GPT Image 2 / 2.5, Ideogram V4.5)
 
@@ -262,7 +264,7 @@ await fs.writeFile(`out.${ext}`, buf)
 
 | Code | Meaning |
 |---|---|
-| `400` | Bad params: missing `model`, schema violation, unknown field, prompt too long, `steps` above max (on models that use steps), invalid `style_preset`, unsupported `resolution`/`quality` for the model, `width`/`height` sent to `qwen-image`/`qwen-image-3`/`qwen-image-3-pro`, `variants` with `return_binary: true`, `style_references` on an unsupported model or over the cap, unreachable/corrupt reference image. |
+| `400` | Bad params: missing `model`, schema violation, unknown field, prompt too long, `steps` above max (on models that use steps), invalid `style_preset`, unsupported `resolution`/`quality` for the model, `width`/`height` above 4096 or (on exact-canvas models) above 1280 before upscale, `variants` with `return_binary: true`, `style_references` on an unsupported model or over the cap, unreachable/corrupt reference image. |
 | `401` | Auth failed. |
 | `402` | No credentials at all (x402 payment-requirements body + `PAYMENT-REQUIRED` header), insufficient balance (Bearer: `"Insufficient USD or Diem balance…"`; x402 wallet: `PAYMENT_REQUIRED` body + header), or the API key's USD/DIEM spend limit is reached. |
 | `403` | The API key's `modelPrivacy` setting blocks this model (e.g. a `PRIVATE_ONLY` key calling an `anonymized` model), or the model is unavailable in your region or restricted for your account. |
@@ -276,7 +278,7 @@ Content-policy violations are **not** an error on these endpoints. You get `200`
 
 ## Gotchas
 
-- Each model uses one sizing idiom: `width`/`height`, or `aspect_ratio` (+ `resolution`). Read `constraints` first. Sending `width`/`height` to an aspect-ratio model is silently ignored, except on `qwen-image`, `qwen-image-3`, and `qwen-image-3-pro`, where it is a `400`.
+- Each model uses one sizing idiom: exact canvas (`width`/`height`, each side ≤ 1280 before upscale) or aspect-ratio (+ `resolution`). Read `constraints` first. On aspect-ratio models, `width`/`height` are **not** ignored: they pick the nearest listed ratio and a 1K/2K/4K tier unless you also send `aspect_ratio` / `resolution`. The schema maximum is 4096.
 - `aspect_ratio` isn't validated on `/image/generate`, so a value the model doesn't list usually falls back to its default without an error. A `resolution` or `quality` the model doesn't list is a `400`.
 - `variants > 1` requires `return_binary: false`.
 - Grok Imagine models return the provider's bytes unchanged when nothing is blurred, so the output format may not match `format` and EXIF isn't embedded. Trust `Content-Type`, or sniff the bytes.
