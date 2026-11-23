@@ -34,6 +34,7 @@ Call `venice_list_models` with `type: "video"`. Text-to-video and image-to-video
 - `aspect_ratios`: required when the list is non-empty, rejected when it is empty.
 - `resolutions`, and whether `audio` is configurable.
 - the prompt character limit.
+- `supportsHdr` and `hdrResolutions` when you might send `hdr: true`.
 
 Each model rejects fields it does not support with a `400`, so build the request from these lists, not from memory.
 
@@ -41,11 +42,11 @@ Each model rejects fields it does not support with a `400`, so build the request
 
 Call `venice_video_quote` with `model` and `duration`. It returns the price in USD and costs nothing. Tell the user the price and get a yes before queuing, especially for long clips, high resolutions or several takes.
 
-The MCP quote tool prices by model and duration. If resolution or audio changes the price for that model, quote through `POST /api/v1/video/quote` with those fields too.
+The MCP quote tool prices by model and duration. If resolution, audio, or `hdr` changes the price for that model, quote through `POST /api/v1/video/quote` with those fields too. HDR is a per-output-second surcharge; do not send `hdr: true` unless the model publishes `supportsHdr` and the resolution is in `hdrResolutions`.
 
 ### 4. Queue
 
-Call `venice_video_generate` with `model`, `prompt`, `duration`, and `aspect_ratio` when the model requires it. Optional: `resolution`, `audio`, `negative_prompt`, `seed`.
+Call `venice_video_generate` with `model`, `prompt`, `duration`, and `aspect_ratio` when the model requires it. Optional: `resolution`, `audio`, `negative_prompt`, `seed`. For `hdr: true`, quote and queue through the REST endpoints until you confirm the MCP tool forwards it.
 
 - **Image-to-video:** pass the first frame as `image_url` (a public URL or a `data:` URL). Some models also take `end_image_url` for a transition between two frames.
 - The response contains a `queue_id`. Keep it with the `model`; you need both to poll.
