@@ -137,7 +137,7 @@ curl "https://api.venice.ai/api/v1/models?type=text"
 
 Every price is `{ usd, diem }`; today `diem` always equals `usd`. Prices already include any promotional discount active for the calling account (some promos are tier-gated, so anonymous and Pro callers can see different numbers) - quote from the same credentials you will bill with.
 
-- **Text / embedding / decision** - `input` and `output` per 1 000 000 tokens, optional `cache_input` (cache reads), `cache_write` (cache creation, e.g. Anthropic), and `extended` `{ context_token_threshold, input, output, cache_input?, cache_write? }`. When input tokens exceed the threshold, extended rates apply to the **entire** request.
+- **Text / embedding / decision** - `input` and `output` per 1 000 000 tokens, optional `cache_input` (cache reads), `cache_write` (cache creation, e.g. Anthropic; five-minute writes when `cache_write_1h` is also present), optional `cache_write_1h` (one-hour `cache_control` ttl `"1h"` writes; Anthropic charges 2× input), and `extended` `{ context_token_threshold, input, output, cache_input?, cache_write?, cache_write_1h? }`. When input tokens exceed the threshold, extended rates apply to the **entire** request. `cache_write_1h` is omitted on models that do not price one-hour writes separately.
 - **Image** - `generation` (flat per image) **or** `resolutions.<1K|2K|4K>`; optional `quality.<resolution>.<low|medium|high>`; always an `upscale.{2x,4x}` block (the shared upscale price, not a sign that this model upscales, and not promo-discounted).
 - **Upscale** (`upscaler`) - same shape as image: `generation` + `upscale.{2x,4x}`.
 - **Inpaint / edit** - `inpaint` per edit, optional `resolutions.*`, optional `inputImages { included, additional }` (surcharge per input image beyond `included`), optional `quality.*`.
@@ -236,7 +236,7 @@ const cost =
   (outputTokens / 1_000_000) * tier.output.usd
 ```
 
-Cache-write tokens (models with `cache_write`) are billed at that rate instead of `input`.
+Cache-write tokens (models with `cache_write`) are billed at that rate instead of `input`. One-hour writes (`cache_control` ttl `"1h"`) use `cache_write_1h` when the model lists it.
 
 ## Gotchas
 

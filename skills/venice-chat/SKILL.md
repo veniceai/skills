@@ -46,7 +46,7 @@ Response shape is the standard OpenAI `chat.completion` object (`id`, `object: "
 
 - `cost: {usd, diem}` — the request's cost split by the currency it was charged in (bundled credits count as USD). `0` when the response has no output tokens (those responses are not billed). Omitted if the cost can't be computed, and currently also when the request was charged to earned credits.
 - `venice_parameters` — the effective Venice settings, plus `web_search_citations[]` (an empty array when no search ran).
-- `usage.prompt_tokens_details.{cached_tokens, cache_creation_input_tokens}` and `usage.completion_tokens_details.reasoning_tokens` when the provider reports them.
+- `usage.prompt_tokens_details.{cached_tokens, cache_creation_input_tokens, cache_write_tokens, cache_creation_5m_input_tokens, cache_creation_1h_input_tokens}` and `usage.completion_tokens_details.reasoning_tokens` when the provider reports them. `cache_write_tokens` is the same count as `cache_creation_input_tokens` (OpenRouter-compatible name). The `*_5m_*` / `*_1h_*` fields split cache writes by TTL when the provider reports that split.
 
 `choices[].finish_reason` is one of `stop`, `length`, `tool_calls`, or `content_filter`. `content_filter` is a `200` in which the model refused or the output was cut (e.g. a Claude refusal); it is not a `422`, so check for it before trusting `message.content`. Some providers block mid-stream instead; the stream then ends with an in-band error chunk (`type: "content_filter_error"`, `code: "content_blocked_by_provider"`) followed by `[DONE]`.
 
@@ -201,7 +201,7 @@ Per-**message** caps: 10 `image_url`, 5 `input_audio`, 3 `video_url`, 5 `file` p
 
 ### Prompt caching (`cache_control`)
 
-Any content part can carry `{"cache_control": {"type": "ephemeral"}}` or `{"type": "ephemeral", "ttl": "1h"}`. Explicit markers matter for models that require them (Claude); other models cache automatically on prefix matches. Those models allow at most 4 breakpoints per request; Venice adds its own to the system prompt and conversation history only while your markers leave slots free. Pair with a stable `prompt_cache_key` for consistent routing. Cache read / write prices are per model (`model_spec.pricing.cache_input` / `cache_write`); hits are reported in `usage.prompt_tokens_details`.
+Any content part can carry `{"cache_control": {"type": "ephemeral"}}` or `{"type": "ephemeral", "ttl": "5m"|"1h"}`. `ttl` defaults to `"5m"`. `"1h"` writes are billed at `model_spec.pricing.cache_write_1h` when that price is present (`cache_write` then covers five-minute writes) and are reported as `usage.prompt_tokens_details.cache_creation_1h_input_tokens`. No special header is required. Explicit markers matter for models that require them (Claude); other models cache automatically on prefix matches. Those models allow at most 4 breakpoints per request; Venice adds its own to the system prompt and conversation history only while your markers leave slots free. Pair with a stable `prompt_cache_key` for consistent routing. Cache read / write prices are per model (`model_spec.pricing.cache_input` / `cache_write` / optional `cache_write_1h`); hits and writes are reported in `usage.prompt_tokens_details`.
 
 ## Tools & function calling
 
