@@ -48,12 +48,12 @@ The MCP quote tool prices by model and duration. If resolution or audio changes 
 Call `venice_video_generate` with `model`, `prompt`, `duration`, and `aspect_ratio` when the model requires it. Optional: `resolution`, `audio`, `negative_prompt`, `seed`.
 
 - **Image-to-video:** pass the first frame as `image_url` (a public URL or a `data:` URL). Some models also take `end_image_url` for a transition between two frames.
-- The response contains a `queue_id`. Keep it with the `model`; you need both to poll.
+- The response contains a `queue_id`. Keep it: REST `/video/retrieve` and `/video/complete` require only `queue_id` (`model` is accepted but ignored).
 - Some models also return a `download_url` here. Keep it: those models deliver the finished video through that link instead of in the status response.
 
 ### 5. Poll
 
-Call `venice_video_status` with `queue_id` and `model`.
+Call `venice_video_status` with `queue_id` (the MCP tool still takes `model`; REST retrieve does not need it).
 
 - While it says `PROCESSING`, it reports `average_execution_time` and `execution_duration` in milliseconds. Use them to tell the user roughly how long is left, and to space your polls: every 10-20 seconds is plenty.
 - When it completes, the result is either an embedded MP4 or a `download_url` link.
@@ -63,7 +63,7 @@ Call `venice_video_status` with `queue_id` and `model`.
 
 Cleanup works through `POST /video/retrieve` only. With `delete_media_on_completion: true` on that call, Venice deletes its stored copy once the video has been returned, so send it on every REST poll ([Save files](#save-files) does), not only the last one; it is safe while the job is still processing.
 
-The MCP tool doesn't honor the flag. `venice_video_status` always retrieves without it, then tries to delete through `/video/complete`, which currently rejects ids issued by `/video/queue`. Ignore its suggestion to call `venice_video_complete`, which fails the same way. To remove a video you fetched through the MCP tool, retrieve it once more over REST with the flag.
+The MCP tool doesn't honor the flag. `venice_video_status` always retrieves without it, then tries to delete through `/video/complete`. That call returns `409` until retrieve has completed; after that, `queue_id` is enough (`model` is ignored). To delete during polling, retrieve over REST with `delete_media_on_completion: true`.
 
 A `download_url` result has nothing to clean up and nothing else to call. Download the file right away, because the link expires within 24 hours.
 
@@ -77,7 +77,7 @@ The MCP tools return the video inline. To save it to disk, poll from a shell wit
 result=$(curl -sS https://api.venice.ai/api/v1/video/retrieve \
   -H "Authorization: Bearer $VENICE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"wan-2.6-text-to-video","queue_id":"<queue_id>","delete_media_on_completion":true}' \
+  -d '{"queue_id":"<queue_id>","delete_media_on_completion":true}' \
   --output clip.mp4 -w '%{http_code} %{content_type}')
 
 case "$result" in

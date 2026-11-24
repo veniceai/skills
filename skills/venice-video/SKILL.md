@@ -12,7 +12,7 @@ Video is **asynchronous** — like audio music. Four live endpoints plus one ret
 | `POST /video/quote` | Price in USD (no charge, no job). No API key needed, except for upscale models. |
 | `POST /video/queue` | Validate, charge, and enqueue. Returns `queue_id` immediately. |
 | `POST /video/retrieve` | Poll status, download `video/mp4`, or receive the job's failure. |
-| `POST /video/complete` | Cleanup of the finished media. Currently rejects `queue_id`s from `/video/queue`, so use `delete_media_on_completion` on retrieve instead (see [step 4](#4-clean-up-with-videocomplete)). |
+| `POST /video/complete` | Cleanup of finished media. Required body is `queue_id` only (`model` is accepted but ignored). `409` if you call it before retrieve has completed. |
 | `POST /video/transcriptions` | **Retired — always returns `410`.** See [below](#videotranscriptions-retired). |
 
 `/video/queue`, `/video/retrieve`, and `/video/complete` accept a Bearer API key or an x402 `SIGN-IN-WITH-X` wallet header (see [`venice-x402`](../venice-x402/SKILL.md)).
@@ -90,11 +90,11 @@ Response: `{ "model": "...", "queue_id": "uuid" }`, plus `download_url` for VPS-
 curl https://api.venice.ai/api/v1/video/retrieve \
   -H "Authorization: Bearer $VENICE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"wan-2.6-text-to-video","queue_id":"...","delete_media_on_completion":false}' \
+  -d '{"queue_id":"...","delete_media_on_completion":false}' \
   --output out.mp4
 ```
 
-Body: `model` + `queue_id` (both required), optional `delete_media_on_completion` (default `false`). No other keys are accepted.
+Body: `queue_id` is required. `model` is accepted but ignored (deprecated — the queued video identifies its own model). Optional `delete_media_on_completion` (default `false`). No other keys are accepted.
 
 - Processing: `200` JSON `{"status":"PROCESSING","average_execution_time":145000,"execution_duration":53200}` (ms; `average_execution_time` is a P80 estimate).
 - Completed (most models): `200` binary `video/mp4` body.
@@ -109,17 +109,17 @@ Body: `model` + `queue_id` (both required), optional `delete_media_on_completion
 curl https://api.venice.ai/api/v1/video/complete \
   -H "Authorization: Bearer $VENICE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"...","queue_id":"..."}'
+  -d '{"queue_id":"..."}'
 ```
 
-Body: `model` + `queue_id` only. Response: `200` `{"success": true}`, or `{"success": false}` if the delete did not go through. Currently it returns `400` `"Request ID is invalid."` for `queue_id`s issued by `/video/queue`, so don't rely on it: clean up by polling with `delete_media_on_completion: true`.
+Body: `queue_id` is required. `model` is accepted but ignored (deprecated — the queued video identifies its own model). Response: `200` `{"success": true}`, or `{"success": false}` if the delete did not go through. `409` if the media is not ready yet — keep polling `/video/retrieve` until it has completed, then call complete. `delete_media_on_completion: true` on retrieve still replaces this call.
 
 ## `/video/queue` request fields
 
 | Field | Type | Notes |
 |---|---|---|
 | `model` | string | Required. |
-| `prompt` | string | Required (≥ 1 non-whitespace char) except for upscale models and `minimax-h3-max-multi-angle`. Max length per model: 2500 default; `constraints.prompt_character_limit` otherwise (from 1000 for Runway up to 20000 for Wan 3.0). |
+| `prompt` | string | Required (≥ 1 non-whitespace char) except for upscale models and `minimax-h3-max-multi-angle`. Max length per model: 2500 default; `constraints.prompt_character_limit` otherwise (schema `maxLength` 32000). |
 | `negative_prompt` | string | Same max length as `prompt`. Ignored by models without negative-prompt support. |
 | `duration` | string | Required, from `constraints.durations` (values span `1s`–`30s`). Upscale and video-to-video models: omit it (server detects the source length) or send seconds as a string such as `"12.5"` (≤ 300) — the literal `"Auto"` is rejected. `seedance-2-5-reference-to-video-basic` also accepts `"-1"` / `"auto"` (match the source clip). |
 | `aspect_ratio` | string | **Required** when the model lists `aspect_ratios`; rejected when the list is empty (image-driven models take the ratio from the input). The Seedance 2.0 R2V `-basic` models (standard / fast / mini) and `seedance-2-5-reference-to-video-basic` also accept `adaptive` / `auto` (match the source clip). |
@@ -266,11 +266,11 @@ Replacement: to analyze, summarize, or ask questions about a video (including Yo
 
 ```ts
 // Pass download_url from the queue response whenever it is present.
-async function waitForVideo(model: string, queueId: string, downloadUrl?: string) {
+async function waitForVideo(queueId: string, downloadUrl?: string) {
   while (true) {
     const res = await fetch(`${base}/video/retrieve`, {
       method: 'POST', headers,
-      body: JSON.stringify({ model, queue_id: queueId, delete_media_on_completion: true }),
+      body: JSON.stringify({ queue_id: queueId, delete_media_on_completion: true }),
     })
     const ct = res.headers.get('content-type') ?? ''
     if (res.ok && ct.startsWith('video/')) {
@@ -297,12 +297,12 @@ async function waitForVideo(model: string, queueId: string, downloadUrl?: string
 
 | Code | Meaning |
 |---|---|
-| `400` | Invalid params (unsupported field for this model, bad enum, missing `prompt` / `image_url` / `video_url`, over-limit arrays, blocked or unreadable media URL, corrupted image). On `/video/retrieve`: `"Request ID is invalid."` for an unknown or expired `queue_id`. On `/video/complete`: the same message currently comes back for every `queue_id` issued by `/video/queue` — clean up with `delete_media_on_completion: true` instead (see [step 4](#4-clean-up-with-videocomplete)). |
+| `400` | Invalid params (unsupported field for this model, bad enum, missing `prompt` / `image_url` / `video_url`, over-limit arrays, blocked or unreadable media URL, corrupted image). On `/video/retrieve` and `/video/complete`: `"Request ID is invalid."` for an unknown or expired `queue_id`. |
 | `401` | Authentication failed. |
 | `402` | Insufficient balance or the API key's spend limit (checked on `/video/queue` before the charge). A wallet below the $0.10 floor gets the x402 `PAYMENT_REQUIRED` body and `PAYMENT-REQUIRED` header; a wallet above the floor but below this job's quote gets the plain `{"error":"Insufficient USD or Diem balance…"}` body with no header — top up via `/x402/top-up` and retry. |
 | `403` | Model unavailable in your region, not permitted by the API key's model-privacy setting, or an unauthenticated upscale quote. |
 | `404` | Model not found (any video endpoint). On `/video/retrieve`: media expired or already deleted. |
-| `409` | `/video/queue` only, unlisted face-enabled Seedance models: `{"error":{"code":"needs_consent",...},"consent_flow":"seedance","face_media_roles":[...],"consent":{"consent_version","policy_text"},"docs_url"}`. |
+| `409` | `/video/queue`, unlisted face-enabled Seedance models: `{"error":{"code":"needs_consent",...},"consent_flow":"seedance","face_media_roles":[...],"consent":{"consent_version","policy_text"},"docs_url"}`. `/video/complete`: the media is not ready yet — retrieve until it has completed, then call complete. |
 | `410` | `/video/transcriptions` (retired). |
 | `413` | Payload too large — shrink or host the media instead of inlining `data:` URLs. |
 | `422` | Content policy or provider-side failure. Screening runs after the job is accepted, so these normally arrive on `/video/retrieve`: provider rejection `{"error":{"message","type":"provider_content_policy","credits_refunded",...}}` (may include `recommended_model`), or provider-side failure `{"error","credits_refunded"}` (plus `hint` when available). |
@@ -326,3 +326,4 @@ See [`venice-errors`](../venice-errors/SKILL.md) for body shapes and retry strat
 - MiniMax H3 and H3 Max reference-to-video models reject `image_url` / `end_image_url` combined with reference media, and count `audio_url` toward the reference-audio cap.
 - `data:` URLs count toward payload size; large base64 videos can trip `413` — prefer hosted URLs.
 - Prices are dynamic (resolution, duration, audio, reference media, promotions) — always quote; don't hard-code.
+- `/video/retrieve` and `/video/complete` require only `queue_id`. Sending `model` still works (it is ignored); omitting it is not a `400`.
