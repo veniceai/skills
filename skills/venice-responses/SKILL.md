@@ -1,21 +1,27 @@
 ---
 name: venice-responses
-description: Use Venice's Alpha POST /responses endpoint - an OpenAI-compatible, stateless Responses API with typed output blocks (reasoning, message, function_call, web_search_call). Covers request shape, input items, tools (function, web_search, x_search), reasoning controls, prompt_cache_retention, incomplete responses, streaming events, differences from /chat/completions, the supported venice_parameters subset, and E2EE behavior.
+description: Use Venice's POST /responses endpoint - an OpenAI-compatible, stateless Responses API with typed output blocks (reasoning, message, function_call, web_search_call). Covers native vs translated (compat) serving, request shape, text.format structured output, input items, tools (function, web_search with external_web_access, x_search), reasoning controls, prompt_cache_retention, incomplete responses, streaming events, differences from /chat/completions, the supported venice_parameters subset, and E2EE behavior.
 ---
 
-# Venice Responses API (Alpha)
+# Venice Responses API
 
-`POST /api/v1/responses` is Venice's OpenAI-compatible Responses endpoint. It returns a **typed output array** instead of a single `message.content` string — useful for agents that need to separate reasoning, messages, tool calls, and web-search events. Internally the request is translated to a chat completion, so model support matches [`venice-chat`](../venice-chat/SKILL.md).
+`POST /api/v1/responses` is Venice's OpenAI-compatible Responses endpoint. It returns a **typed output array** instead of a single `message.content` string — useful for agents that need to separate reasoning, messages, tool calls, and web-search events. Any Bearer API key or x402 wallet can call it.
 
-> **Alpha.** The spec labels it Alpha (and its description still says "Alpha testers only"), but access is no longer restricted: any Bearer API key or x402 wallet can call it. Schemas may still change.
+Venice serves each request in one of two modes (spec `POST /responses` description):
+
+- **Native** — most OpenAI models are forwarded to OpenAI's Responses API.
+- **Translated (compat)** — other models, and requests that use Venice features such as web search or characters, are converted through Chat Completions, where some Responses features are not supported.
+
+Send `x-venice-responses-mode: native` or `compat` to choose the mode. Read `x-venice-responses-lane` on the response to see which mode served the request. A top-level `web_search` tool with `external_web_access: false` is omitted rather than forcing compatibility mode; it does not enable live Venice web search on the compatibility path.
 
 ## Use when
 
 - A client library expects the OpenAI Responses shape (`output[]` with `type: "reasoning" | "message" | "function_call" | "web_search_call"`).
 - You want reasoning, message, and tool-call output cleanly separated.
 - You want SSE streaming with typed events.
+- You want structured output via `text.format` (`json_schema` or `json_object`) on this endpoint.
 
-Otherwise use [`venice-chat`](../venice-chat/SKILL.md) — it has structured output, audio/video/file inputs, E2EE, sampling controls, and every `venice_parameters` field.
+Otherwise use [`venice-chat`](../venice-chat/SKILL.md) — it has audio/video/file inputs, E2EE, sampling controls, and every `venice_parameters` field.
 
 ## Limitations vs `/chat/completions`
 
@@ -24,7 +30,7 @@ Otherwise use [`venice-chat`](../venice-chat/SKILL.md) — it has structured out
 | **Stateless** | Nothing is stored. Send the full history each call. `previous_response_id`, `store`, `background` are ignored. |
 | **No E2EE** | E2EE-capable models return `400` unless `venice_parameters.enable_e2ee: false` (TEE-only mode). For encrypted inference use `/chat/completions`. |
 | **Text + image input only** | `input_text` / `input_image` (and `text` / `image_url` parts). No audio, video, or file parts. |
-| **No structured output** | `text.format` / `response_format` are dropped. Use `/chat/completions`. |
+| **Structured output is model-gated** | `text.format` requests `json_schema` (with `name` + `schema`) or `json_object`. Models without structured-output support return `400`. `response_format` is still a chat-only field. |
 | **Subset of `venice_parameters`** | `character_slug`, `enable_e2ee`, `enable_web_search`, `enable_web_scraping`, `enable_web_citations`, `include_venice_system_prompt`, `include_search_results_in_stream`. Other keys (`strip_thinking_response`, `disable_thinking`, `enable_x_search`, `return_search_results_as_documents`) are silently dropped. |
 | **No model feature suffixes** | `model: "zai-org-glm-5-1:enable_web_search=on"` resolves the model but ignores the suffix. |
 | **Few generation controls** | Only `temperature`, `top_p`, `max_output_tokens`. |
@@ -66,6 +72,7 @@ print(resp.output_text)
 | `reasoning.effort` | `none` \| `minimal` \| `low` \| `medium` \| `high` \| `xhigh` \| `max` (per-model support: `model_spec.capabilities.reasoningEffortOptions`). `reasoning` may be `null`. |
 | `reasoning.enabled` | `false` disables reasoning on supported models and suppresses reasoning blocks. Ignored when an effort is set. |
 | `reasoning.summary` | `auto` \| `concise` \| `detailed`. Accepted but not forwarded. |
+| `text` | Optional, nullable. `text.format` requests structured output: `{type:"json_schema", name, schema, strict?}` or `{type:"json_object"}` (also `{type:"text"}`). Models without structured-output support return `400`. |
 | `tools` | See Tools. |
 | `tool_choice` | `"auto"` \| `"none"` \| `"required"` \| `{"type":"function","function":{"name":"..."}}`. Dropped when no function tools remain. |
 | `web_search` | Boolean. `true` forces web search on (same as a `{"type":"web_search"}` tool). |
@@ -76,13 +83,14 @@ print(resp.output_text)
 | `fallbacks` | Up to 10 `{model}` entries. Anthropic beta refusal fallback for Claude Fable 5; forwarded only on direct Anthropic routes. |
 | `venice_parameters` | Subset listed above. Example: `{"character_slug":"alan-watts","enable_web_search":"auto"}`. |
 
-The body is permissive: other fields (`instructions`, `metadata`, `parallel_tool_calls`, `n`, `stop`, `seed`, `prompt_cache_key`, `store`, `previous_response_id`, `background`, `text`, `user`) are accepted without error but **never reach inference** (`user` still splits the error budget per value). Put system instructions in the `input` array instead of `instructions`.
+The body is permissive: other fields (`instructions`, `metadata`, `parallel_tool_calls`, `n`, `stop`, `seed`, `prompt_cache_key`, `store`, `previous_response_id`, `background`, `user`) are accepted without error but **never reach inference** on the translated path (`user` still splits the error budget per value). Put system instructions in the `input` array instead of `instructions`. `text` is a real request field (see above), not one of the ignored compat keys.
 
 ### Input items
 
 | Item | Shape | Handling |
 |---|---|---|
 | Message | `{role, content}` or `{type:"message", role, content}` | `role`: `user` / `assistant` / `system` / `developer` (`developer` becomes `system`). `content` is a string or an array of parts. |
+| Web search call | `{type:"web_search_call", id, status, action?}` | Replay a prior `web_search_call` output item in history. `status`: `in_progress` / `searching` / `completed` / `failed` / `incomplete`. Optional `action` is `search` / `open_page` / `find_in_page`. |
 | Function call | `{type:"function_call", call_id, name, arguments}` | Replayed as an assistant tool call. |
 | Function output | `{type:"function_call_output", call_id, output}` | `output` may be a string, array, object, number, boolean, or null. `input_image` parts inside an array output are forwarded to the model as images. |
 | Reasoning | `{type:"reasoning", ...}` | Accepted but **discarded** — reasoning is not carried between turns. |
@@ -95,7 +103,7 @@ Content parts: `input_text`, `output_text` (to replay assistant output), and `in
 | Tool | Effect |
 |---|---|
 | `{"type":"function","function":{name, description, parameters, strict}}` | Function calling. The flat OpenAI form `{"type":"function","name":...,"parameters":...}` is also accepted. Use a model with `supportsFunctionCalling` (not pre-checked on this endpoint, unlike chat). |
-| `{"type":"web_search"}` | Forces Venice web search **on** (not `auto`). `search_context_size` / `user_location` are accepted but ignored. |
+| `{"type":"web_search"}` | Forces Venice web search **on** (not `auto`). `search_context_size` / `user_location` are accepted but ignored. `external_web_access: false` declares the tool without live web access — it does **not** enable Venice web search, and the tool is omitted rather than forcing compatibility mode. |
 | `{"type":"x_search", ...}` | xAI native web + X search on models with `supportsXSearch` (Grok); ignored on other models. Optional filters: `allowed_x_handles` / `excluded_x_handles` (≤ 10 each), `from_date`, `to_date`, `enable_image_understanding`, `enable_video_understanding`. |
 | `code_interpreter`, `file_search`, `computer_use_preview`, others | Accepted and dropped. Unknown tool types that carry a `name` are treated as function tools. |
 
@@ -140,7 +148,7 @@ Content parts: `input_text`, `output_text` (to replay assistant output), and `in
 | `reasoning` | Reasoning from thinking models. `summary[]` holds text; `encrypted_content` appears only if you sent `include: ["reasoning.encrypted_content"]` and the provider returned encrypted reasoning. Sending it back in `input` has no effect. |
 | `message` | Main text. `content[].type === "output_text"` with `annotations[]`. |
 | `function_call` | Tool call: `name`, JSON-string `arguments`, `call_id`. Answer with a `function_call_output` item with the same `call_id`. |
-| `web_search_call` | Marker that Venice web search ran. |
+| `web_search_call` | Marker that Venice web search ran. May include `action` (`search` / `open_page` / `find_in_page`). Replay it in `input` on later turns. |
 
 `url_citation` annotations are built only when the text contains single-index `^n^` markers — set `venice_parameters.enable_web_citations: true` to get them. Each annotation spans the marker itself; multi-index markers such as `^1,3^` are not annotated.
 
@@ -171,7 +179,7 @@ data: [DONE]
 
 | Status | When |
 |---|---|
-| `400` | Invalid body, E2EE-capable model without `enable_e2ee: false`, invalid image, unsupported `reasoning.effort` for the model, context too long, `max_output_tokens` over the cap |
+| `400` | Invalid body, E2EE-capable model without `enable_e2ee: false`, invalid image, unsupported `reasoning.effort` for the model, context too long, `max_output_tokens` over the cap, `text.format` on a model without structured-output support |
 | `401` | Invalid API key or SIWX sign-in; also a model that requires a paid subscription |
 | `402` | No credentials at all (x402 discovery body — not `401`), insufficient balance, or API-key spend limit. x402: `PAYMENT_REQUIRED` body with `topUpInstructions` + `siwxChallenge` and a `PAYMENT-REQUIRED` header (see [`venice-x402`](../venice-x402/SKILL.md)) |
 | `403` | Model blocked by the key's `modelPrivacy`, region, or provider restriction |
@@ -190,7 +198,7 @@ The spec lists an `X-Balance-Remaining` header on x402 `200` responses, but the 
 - `venice_parameters.character_slug`, `enable_web_search`, `enable_web_citations`, `enable_web_scraping`, `include_venice_system_prompt` → pass inside `venice_parameters` (not as model suffixes).
 - `enable_x_search` → add an `{"type":"x_search"}` tool instead.
 - `strip_thinking_response` / `disable_thinking` → use `reasoning.enabled: false`.
-- Structured output, audio / video / file inputs, `seed` / `stop` / `n`, logprobs, `prompt_cache_key` routing, and full E2EE → stay on `/chat/completions`. `prompt_cache_retention` is a Responses request field (see above); `prompt_cache_key` is still accepted here and ignored.
+- Audio / video / file inputs, `seed` / `stop` / `n`, logprobs, `prompt_cache_key` routing, and full E2EE → stay on `/chat/completions`. Structured output uses `text.format` here (`json_schema` / `json_object`); chat still uses `response_format`. `prompt_cache_retention` is a Responses request field (see above); `prompt_cache_key` is still accepted here and ignored.
 
 ## Gotchas
 
@@ -198,3 +206,5 @@ The spec lists an `X-Balance-Remaining` header on x402 `200` responses, but the 
 - Reasoning items in `input` are discarded; there is no cross-turn reasoning carry-over on this endpoint.
 - `tool_choice` objects must be `{"type":"function","function":{"name":...}}`; the flat `{"type":"function","name":...}` form fails validation.
 - Stateless: `previous_response_id` is silently ignored, so omitting history silently loses context.
+- `text.format` is live in the spec (`ResponsesRequest.text`). Published docs at `https://docs.venice.ai/guides/features/responses-api` still say translated mode **ignores** `text.format`; the spec says models without structured-output support return `400`. Trust the spec, and pick a model with `supportsResponseSchema` from `GET /models`.
+- Venice features (web search, characters) force the translated path. `external_web_access: false` on a top-level `web_search` tool does not.

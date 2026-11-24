@@ -64,7 +64,7 @@ await v.models()
 | Category | Endpoints | Skill |
 |---|---|---|
 | Chat | `POST /chat/completions` | [`venice-chat`](../venice-chat/SKILL.md) |
-| Responses (Alpha) | `POST /responses` | [`venice-responses`](../venice-responses/SKILL.md) |
+| Responses | `POST /responses` | [`venice-responses`](../venice-responses/SKILL.md) |
 | Embeddings | `POST /embeddings` | [`venice-embeddings`](../venice-embeddings/SKILL.md) |
 | Decisions (Beta) | `POST /decisions` (alias `POST /systemone`) | [`venice-decisions`](../venice-decisions/SKILL.md) |
 | Image gen | `POST /image/generate`, `POST /images/generations`, `GET /image/styles` | [`venice-image-generate`](../venice-image-generate/SKILL.md) |
@@ -162,7 +162,7 @@ Exceptions worth knowing: context-length overflows on chat return an OpenAI-styl
 ## Versioning
 
 - `info.version` in `swagger.yaml` is a timestamp (`YYYYMMDD.HHMMSS`). There is **no** `/v2`; features roll forward on the single `/api/v1` surface and are guarded by:
-  - **Alpha/Beta** labels in endpoint descriptions (Responses is Alpha; Decisions and Billing are Beta).
+  - **Beta** labels in endpoint descriptions (Decisions and Billing are Beta). `/responses` is no longer labeled Alpha/Beta in the spec.
   - `betaModel` / `deprecation` metadata and capability flags on `/models`.
 - Retired endpoints answer `410` with `Deprecation` / `Link` headers rather than disappearing silently.
 - Always check the model's `model_spec.capabilities` (`supportsWebSearch`, `supportsReasoning`, `supportsE2EE`, `supportsXSearch`, `supportsMultipleImages`, `supportsFunctionCalling`, `supportsAudioInput`, `supportsVideoInput`, …) before relying on a feature.
